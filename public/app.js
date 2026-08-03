@@ -51,7 +51,7 @@
   const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
   const desktopBridge = window.odakDesktop || null;
   const elements = {
-    connection: $("#baglantiDurumu"), demoNotice: $("#demoUyarisi"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
+    connection: $("#baglantiDurumu"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
@@ -90,7 +90,6 @@
     state.stats = {};
     state.connection = { connected: false, demo: true };
     state.isDemo = true;
-    elements.demoNotice.hidden = false;
     if (reason) console.info("Demo modu:", reason);
     render();
   }
@@ -157,7 +156,6 @@
       state.stats = data?.stats || {};
       state.connection = data?.connection || {};
       state.isDemo = false;
-      elements.demoNotice.hidden = true;
       render();
       scheduleDashboardRefresh();
     } catch (error) {
