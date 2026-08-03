@@ -49,7 +49,7 @@
   const $ = (selector, scope = document) => scope.querySelector(selector);
   const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
   const elements = {
-    connection: $("#baglantiDurumu"), demoNotice: $("#demoUyarisi"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
+    connection: $("#baglantiDurumu"), demoNotice: $("#demoUyarisi"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
@@ -384,11 +384,19 @@
     elements.account.title = email ? `${email} — çıkış seçenekleri` : "Giriş yap";
   }
 
-  function connectGmail() {
+  async function connectGmail() {
     if (elements.setupLink.disabled) { notify("Gmail bağlantısı için sunucuda Google OAuth bilgileri yapılandırılmalı.", "uyari"); return; }
     const hint = elements.gmailAddress.value.trim();
     if (hint && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hint)) { notify("Geçerli bir Gmail adresi yaz veya alanı boş bırak.", "uyari"); return; }
-    window.location.assign(`/auth/google${hint ? `?email=${encodeURIComponent(hint)}` : ""}`);
+    if (!elements.gmailConsent.checked) { notify("Devam etmek için Gmail verisi işleme onayını vermelisin.", "uyari"); return; }
+    elements.setupLink.disabled = true;
+    try {
+      await request("/api/gmail/consent", { method: "POST", body: JSON.stringify({ accepted: true }) });
+      window.location.assign(`/auth/google${hint ? `?email=${encodeURIComponent(hint)}` : ""}`);
+    } catch (error) {
+      notify(error.message || "Gmail bağlantısı başlatılamadı.", "uyari");
+      elements.setupLink.disabled = false;
+    }
   }
 
   async function disconnectGmail() {

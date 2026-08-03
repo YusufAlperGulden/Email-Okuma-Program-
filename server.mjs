@@ -176,6 +176,7 @@ async function route(req, res) {
     if (method !== 'GET' && method !== 'HEAD') assertSameOrigin(req);
   }
 
+  if (method === 'POST' && pathname === '/api/gmail/consent') return recordGmailConsent(req, res, session.userId);
   if (method === 'GET' && pathname === '/auth/google') return beginGoogleOAuth(requestUrl, res, session);
   if (method === 'GET' && pathname === '/auth/google/callback') return finishGoogleOAuth(requestUrl, res, session);
   if (method === 'GET' && pathname === '/api/dashboard') return dashboard(res, session.userId);
@@ -300,6 +301,9 @@ async function beginGoogleOAuth(url, res, session) {
   requireDatabase();
   requireGoogleConfig();
   requireEncryption();
+  if (!(await hasGmailProcessingConsent(session.userId))) {
+    throw new HttpError(409, 'Gmail bağlantısından önce veri işleme onayı vermelisiniz.', 'gmail_consent_required');
+  }
   const state = randomBytes(32).toString('base64url');
   const codeVerifier = randomBytes(48).toString('base64url');
   const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
@@ -324,6 +328,15 @@ async function beginGoogleOAuth(url, res, session) {
   if (emailHint) params.set('login_hint', emailHint);
   res.writeHead(302, { Location: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
   res.end();
+}
+
+async function recordGmailConsent(req, res, userId) {
+  const body = await readJson(req);
+  if (body.accepted !== true) {
+    throw new HttpError(400, 'Gmail verisi işleme onayı gereklidir.', 'gmail_consent_required');
+  }
+  await sql('UPDATE app_users SET gmail_consent_at = NOW() WHERE id = $1', [userId]);
+  return sendJson(res, 200, { ok: true });
 }
 
 async function finishGoogleOAuth(url, res, session) {
@@ -550,13 +563,14 @@ async function syncGmail(userId, { limit, force }) {
 async function updateStatus(id, req, res, userId) {
   const body = await readJson(req);
   if (!STATUSES.has(body.status)) throw new HttpError(400, 'Geçersiz e-posta durumu.', 'invalid_status');
+  const expectedGoogleSubject = await requiredGoogleSubject(userId);
   const store = await readStore(userId);
   const email = store.emails.find((candidate) => candidate.id === id);
   if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
   email.status = body.status;
   if (body.status !== 'snoozed') email.snoozedUntil = null;
   email.updatedAt = new Date().toISOString();
-  await writeStore(userId, store);
+  await writeStore(userId, store, { expectedGoogleSubject });
   return sendJson(res, 200, { ok: true, email: visibleEmail(email) });
 }
 
@@ -566,13 +580,14 @@ async function snoozeEmail(id, req, res, userId) {
   if (!until || Number.isNaN(until.valueOf()) || until.valueOf() <= Date.now()) {
     throw new HttpError(400, 'Geçerli ve gelecekte bir hatırlatma zamanı seçin.', 'invalid_snooze_date');
   }
+  const expectedGoogleSubject = await requiredGoogleSubject(userId);
   const store = await readStore(userId);
   const email = store.emails.find((candidate) => candidate.id === id);
   if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
   email.status = 'snoozed';
   email.snoozedUntil = until.toISOString();
   email.updatedAt = new Date().toISOString();
-  await writeStore(userId, store);
+  await writeStore(userId, store, { expectedGoogleSubject });
   return sendJson(res, 200, { ok: true, email: visibleEmail(email) });
 }
 
@@ -890,6 +905,14 @@ async function gmailConnectionMeta(userId) {
   } : null;
 }
 
+async function requiredGoogleSubject(userId) {
+  const connection = await gmailConnectionMeta(userId);
+  if (!connection?.googleSubject) {
+    throw new HttpError(409, 'Gmail bağlantısı kaldırılmış. Önce bir Gmail hesabı bağlayın.', 'gmail_not_connected');
+  }
+  return connection.googleSubject;
+}
+
 async function connectedUserIds() {
   const result = await sql('SELECT user_id FROM gmail_connections ORDER BY updated_at ASC');
   return result.rows.map((row) => row.user_id);
@@ -1040,8 +1063,10 @@ async function initializeDatabase() {
          email TEXT NOT NULL UNIQUE,
          password_hash TEXT NOT NULL,
          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-         last_login_at TIMESTAMPTZ
+         last_login_at TIMESTAMPTZ,
+         gmail_consent_at TIMESTAMPTZ
        )`,
+      'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS gmail_consent_at TIMESTAMPTZ',
       `CREATE TABLE IF NOT EXISTS app_sessions (
          id_hash TEXT PRIMARY KEY,
          user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
@@ -1108,6 +1133,11 @@ function requireDatabase() {
 async function sql(query, values = []) {
   requireDatabase();
   return database.query(query, values);
+}
+
+async function hasGmailProcessingConsent(userId) {
+  const result = await sql('SELECT gmail_consent_at FROM app_users WHERE id = $1', [userId]);
+  return Boolean(result.rows[0]?.gmail_consent_at);
 }
 
 function normalizeAccountEmail(value) {
