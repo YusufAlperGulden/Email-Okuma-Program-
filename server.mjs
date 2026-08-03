@@ -71,6 +71,7 @@ const AUTH_WINDOW_MS = 1000 * 60 * 15;
 const AUTH_MAX_ATTEMPTS = 10;
 const LOCAL_USER_ID = 'odakposta-desktop-user-v1';
 const LOCAL_USER_EMAIL = 'yerel@odakposta.local';
+const LOCAL_USER_USERNAME = 'yerel-kullanici';
 const LOCAL_SESSION_ID = 'odakposta-desktop-session-v1';
 let database = null;
 let databaseKind = null;
@@ -222,8 +223,7 @@ async function route(req, res) {
     });
   }
   if (method === 'POST' && pathname === '/api/auth/register') return register(req, res);
-  if (method === 'POST' && pathname === '/api/auth/login') return login(req, res);
-  if (method === 'POST' && pathname === '/api/auth/update') return updateCredentials(req, res, session);
+  if (method === 'POST' && (pathname === '/api/auth/login' || pathname === '/api/login')) return login(req, res);
   if (method === 'POST' && pathname === '/api/logout') return logout(req, res, session);
 
   if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
@@ -232,6 +232,7 @@ async function route(req, res) {
   }
 
   if (method === 'POST' && pathname === '/api/gmail/consent') return recordGmailConsent(req, res, session.userId);
+  if (method === 'PATCH' && pathname === '/api/account') return updateAccount(req, res, session);
   if (method === 'DELETE' && pathname === '/api/account') return deleteAccount(req, res, session);
   if (method === 'GET' && pathname === '/auth/google') return beginGoogleOAuth(requestUrl, res, session);
   if (method === 'GET' && pathname === '/auth/google/callback') return finishGoogleOAuth(requestUrl, res, session);
@@ -266,7 +267,7 @@ async function register(req, res) {
   // used to create an unlimited number of accounts in one rate window.
   recordAuthFailure(req, 'register');
   const body = await readJson(req);
-  const username = (body.username || '').trim();
+  const username = normalizeUsername(body.username);
   const password = typeof body.password === 'string' ? body.password : '';
   if (!username) throw new HttpError(400, 'Geçerli bir kullanıcı adı girin.', 'invalid_username');
   if (password.length < PASSWORD_MIN_LENGTH) {
@@ -276,9 +277,24 @@ async function register(req, res) {
     throw new HttpError(400, 'Parolalar eşleşmiyor.', 'password_mismatch');
   }
   const userId = randomUUID();
+  const usernameKey = username.toLowerCase();
   try {
-    await sql('INSERT INTO app_users (id, username, password_hash) VALUES ($1, $2, $3)', [userId, username, await hashPassword(password)]);
+    const existing = await sql(
+      `SELECT id
+         FROM app_users
+        WHERE username_key = $1
+           OR LOWER(COALESCE(username, '')) = $1
+           OR (username IS NULL AND LOWER(COALESCE(email, '')) = $1)
+        LIMIT 1`,
+      [usernameKey]
+    );
+    if (existing.rows[0]) throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+    await sql(
+      'INSERT INTO app_users (id, email, username, username_key, password_hash) VALUES ($1, $2, $3, $4, $5)',
+      [userId, internalAccountEmail(userId), username, usernameKey, await hashPassword(password)]
+    );
   } catch (error) {
+    if (error instanceof HttpError) throw error;
     if (error?.code === '23505') throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
     throw error;
   }
@@ -292,9 +308,17 @@ async function login(req, res) {
   assertSameOrigin(req);
   assertAuthAttemptAllowed(req, 'login');
   const body = await readJson(req);
-  const username = (body.username || '').trim();
+  const identifier = normalizeLoginIdentifier(body.identifier ?? body.username ?? body.email);
   const password = typeof body.password === 'string' ? body.password : '';
-  const result = username ? await sql('SELECT id, username, password_hash FROM app_users WHERE username = $1', [username]) : { rows: [] };
+  const result = identifier ? await sql(
+    `SELECT id, username, username_key, email, password_hash
+       FROM app_users
+      WHERE username_key = $1
+         OR LOWER(COALESCE(username, '')) = $1
+         OR (username IS NULL AND LOWER(COALESCE(email, '')) = $1)
+      LIMIT 1`,
+    [identifier]
+  ) : { rows: [] };
   const user = result.rows[0];
   if (!user || !(await passwordMatches(user.password_hash, password))) {
     recordAuthFailure(req, 'login');
@@ -302,49 +326,98 @@ async function login(req, res) {
   }
   await sql('UPDATE app_users SET last_login_at = NOW() WHERE id = $1', [user.id]);
   clearAuthAttempts(req, 'login');
-  const session = await createSession({ userId: user.id, username: user.username });
-  return respondWithSession(res, session, { authenticated: true, user: { username: user.username } });
+  const username = user.username || user.email;
+  const session = await createSession({ userId: user.id, username });
+  return respondWithSession(res, session, { authenticated: true, user: { username } });
 }
 
-async function updateCredentials(req, res, session) {
+async function updateAccount(req, res, session) {
   if (CONFIG.localMode) throw new HttpError(409, 'Yerel verileri güncellemek için masaüstü ayarlarını kullanın.', 'desktop_local_mode');
+  assertAuthAttemptAllowed(req, 'account_update');
   const body = await readJson(req);
   const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
-  const newUsername = typeof body.newUsername === 'string' ? body.newUsername.trim() : null;
-  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : null;
-  
-  const result = await sql('SELECT password_hash FROM app_users WHERE id = $1', [session.userId]);
+  const requestedUsername = typeof body.username === 'string' ? body.username : undefined;
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
+  const passwordConfirmation = typeof body.passwordConfirmation === 'string' ? body.passwordConfirmation : '';
+  const result = await sql(
+    'SELECT username, username_key, email, password_hash FROM app_users WHERE id = $1',
+    [session.userId]
+  );
   const user = result.rows[0];
   if (!user || !(await passwordMatches(user.password_hash, currentPassword))) {
+    recordAuthFailure(req, 'account_update');
     throw new HttpError(403, 'Mevcut parola doğru değil.', 'invalid_password');
   }
 
-  const updates = [];
-  const params = [];
-  let paramIndex = 1;
-
-  if (newUsername) {
-    updates.push(`username = $${paramIndex++}`);
-    params.push(newUsername);
+  const currentUsername = user.username || user.email;
+  const currentUsernameKey = user.username_key || normalizeLoginIdentifier(currentUsername);
+  let nextUsername = currentUsername;
+  let nextUsernameKey = currentUsernameKey;
+  if (requestedUsername !== undefined && requestedUsername.trim().toLowerCase() !== currentUsername.toLowerCase()) {
+    nextUsername = normalizeUsername(requestedUsername);
+    if (!nextUsername) throw new HttpError(400, 'Kullanıcı adı 3–32 karakter olmalı; harf, rakam, nokta, alt çizgi veya tire kullanabilirsiniz.', 'invalid_username');
+    nextUsernameKey = nextUsername.toLowerCase();
   }
-  if (newPassword) {
+  const usernameChanged = nextUsername !== currentUsername || nextUsernameKey !== currentUsernameKey;
+  const passwordChanged = Boolean(newPassword || passwordConfirmation);
+  if (!usernameChanged && !passwordChanged) {
+    throw new HttpError(400, 'Kaydedilecek bir hesap değişikliği yok.', 'no_account_changes');
+  }
+  if (passwordChanged) {
     if (newPassword.length < PASSWORD_MIN_LENGTH) {
       throw new HttpError(400, `Yeni parola en az ${PASSWORD_MIN_LENGTH} karakter olmalıdır.`, 'password_too_short');
     }
-    updates.push(`password_hash = $${paramIndex++}`);
-    params.push(await hashPassword(newPassword));
-  }
-
-  if (updates.length > 0) {
-    params.push(session.userId);
-    try {
-      await sql(`UPDATE app_users SET ${updates.join(', ')} WHERE id = $${paramIndex}`, params);
-    } catch (error) {
-      if (error?.code === '23505') throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
-      throw error;
+    if (newPassword !== passwordConfirmation) {
+      throw new HttpError(400, 'Yeni parolalar eşleşmiyor.', 'password_mismatch');
     }
   }
-  return sendJson(res, 200, { ok: true, username: newUsername });
+
+  const passwordHash = passwordChanged ? await hashPassword(newPassword) : null;
+  const refreshedSession = newSession({ userId: session.userId, username: nextUsername });
+  try {
+    await withTransaction(async (client) => {
+      if (usernameChanged) {
+        const collision = await client.query(
+          `SELECT id
+             FROM app_users
+            WHERE id <> $2
+              AND (username_key = $1 OR LOWER(COALESCE(username, '')) = $1 OR (username IS NULL AND LOWER(COALESCE(email, '')) = $1))
+            LIMIT 1`,
+          [nextUsernameKey, session.userId]
+        );
+        if (collision.rows[0]) throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+      }
+
+      const updates = ['last_login_at = NOW()'];
+      const params = [];
+      if (usernameChanged) {
+        params.push(nextUsername, nextUsernameKey);
+        updates.unshift(`username = $${params.length - 1}`, `username_key = $${params.length}`);
+      }
+      if (passwordChanged) {
+        params.push(passwordHash);
+        updates.unshift(`password_hash = $${params.length}`);
+      }
+      params.push(session.userId, user.password_hash);
+      const update = await client.query(
+        `UPDATE app_users
+            SET ${updates.join(', ')}
+          WHERE id = $${params.length - 1} AND password_hash = $${params.length}`,
+        params
+      );
+      if (update.rowCount !== 1) throw new HttpError(401, 'Hesap bilgileri güncellenemedi. Lütfen tekrar giriş yapın.', 'invalid_credentials');
+      await client.query('DELETE FROM app_sessions WHERE user_id = $1', [session.userId]);
+      await client.query(
+        'INSERT INTO app_sessions (id_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+        [refreshedSession.idHash, session.userId, new Date(refreshedSession.expiresAt)]
+      );
+    });
+  } catch (error) {
+    if (error?.code === '23505') throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+    throw error;
+  }
+  clearAuthAttempts(req, 'account_update');
+  return respondWithSession(res, refreshedSession, { authenticated: true, user: { username: nextUsername } });
 }
 
 async function logout(req, res, session) {
@@ -381,12 +454,16 @@ async function deleteAccount(req, res, session) {
 }
 
 async function createSession({ userId, username }) {
-  const id = randomBytes(32).toString('base64url');
-  const idHash = hashSecret(id);
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  const session = newSession({ userId, username });
   await sql('DELETE FROM app_sessions WHERE expires_at <= NOW()');
-  await sql('INSERT INTO app_sessions (id_hash, user_id, expires_at) VALUES ($1, $2, $3)', [idHash, userId, expiresAt]);
-  return { id, idHash, userId, username, expiresAt: expiresAt.valueOf() };
+  await sql('INSERT INTO app_sessions (id_hash, user_id, expires_at) VALUES ($1, $2, $3)', [session.idHash, userId, new Date(session.expiresAt)]);
+  return session;
+}
+
+function newSession({ userId, username }) {
+  const id = randomBytes(32).toString('base64url');
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  return { id, idHash: hashSecret(id), userId, username, expiresAt: expiresAt.valueOf() };
 }
 
 function respondWithSession(res, session, payload) {
@@ -402,7 +479,7 @@ async function getSession(req) {
   if (!id) return null;
   const idHash = hashSecret(id);
   const result = await sql(
-    `SELECT s.user_id, s.expires_at, u.username
+    `SELECT s.user_id, s.expires_at, COALESCE(u.username, u.email) AS username
        FROM app_sessions s
        JOIN app_users u ON u.id = s.user_id
       WHERE s.id_hash = $1 AND s.expires_at > NOW()`,
@@ -419,17 +496,17 @@ async function getSession(req) {
 async function getLocalSession() {
   if (localSession) return localSession;
   const result = await sql(
-    `INSERT INTO app_users (id, username, password_hash, last_login_at)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO app_users (id, email, username, username_key, password_hash, last_login_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())
      ON CONFLICT (id) DO UPDATE SET last_login_at = NOW()
-     RETURNING username`,
-    [LOCAL_USER_ID, LOCAL_USER_EMAIL, await hashPassword(randomBytes(32).toString('base64url'))]
+     RETURNING COALESCE(username, email) AS username`,
+    [LOCAL_USER_ID, LOCAL_USER_EMAIL, LOCAL_USER_USERNAME, LOCAL_USER_USERNAME, await hashPassword(randomBytes(32).toString('base64url'))]
   );
   localSession = {
     id: LOCAL_SESSION_ID,
     idHash: hashSecret(LOCAL_SESSION_ID),
     userId: LOCAL_USER_ID,
-    username: result.rows[0]?.username || LOCAL_USER_EMAIL,
+    username: result.rows[0]?.username || LOCAL_USER_USERNAME,
     expiresAt: Number.MAX_SAFE_INTEGER
   };
   return localSession;
@@ -1248,13 +1325,32 @@ async function initializeDatabase() {
     const schema = [
       `CREATE TABLE IF NOT EXISTS app_users (
          id TEXT PRIMARY KEY,
-         username TEXT NOT NULL UNIQUE,
+         -- Keep the old account address internally while user-facing sign-in
+         -- moves to username + password. New rows receive a non-routable
+         -- generated value, so a real Gmail address is never required here.
+         email TEXT NOT NULL UNIQUE,
+         username TEXT,
+         username_key TEXT,
          password_hash TEXT NOT NULL,
          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
          last_login_at TIMESTAMPTZ,
          gmail_consent_at TIMESTAMPTZ
        )`,
+      // These additive migrations deliberately leave the historic `email`
+      // column intact. Renaming it in production would make an interrupted
+      // deployment needlessly risky and would alter existing identifiers.
+      'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS email TEXT',
+      'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS username TEXT',
+      'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS username_key TEXT',
       'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS gmail_consent_at TIMESTAMPTZ',
+      // Original e-mail accounts retain the same value as their first
+      // username. This is an additive copy, not a destructive column rename.
+      'UPDATE app_users SET username = email WHERE username IS NULL AND email IS NOT NULL',
+      // A database which already ran the short-lived rename migration has no
+      // e-mail values to copy. Its existing usernames remain usable and gain
+      // a key on their next username change.
+      'UPDATE app_users SET username_key = LOWER(username) WHERE username_key IS NULL AND username IS NOT NULL AND email IS NOT NULL',
+      'CREATE UNIQUE INDEX IF NOT EXISTS app_users_username_key_unique ON app_users (username_key) WHERE username_key IS NOT NULL',
       `CREATE TABLE IF NOT EXISTS app_sessions (
          id_hash TEXT PRIMARY KEY,
          user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
@@ -1303,7 +1399,6 @@ async function initializeDatabase() {
        )`
     ];
     for (const statement of schema) await database.query(statement);
-    try { await database.query('ALTER TABLE app_users RENAME COLUMN email TO username'); } catch (e) { /* ignore */ }
     await database.query('DELETE FROM app_sessions WHERE expires_at <= NOW()');
     await database.query('DELETE FROM oauth_states WHERE expires_at <= NOW()');
     await migrateLegacyEncryptedRecords();
@@ -1416,6 +1511,21 @@ function normalizeAccountEmail(value) {
   const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '';
   return email;
+}
+
+function normalizeUsername(value) {
+  const username = typeof value === 'string' ? value.trim() : '';
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{1,30}[A-Za-z0-9])$/.test(username)) return '';
+  return username;
+}
+
+function normalizeLoginIdentifier(value) {
+  const username = normalizeUsername(value);
+  return username ? username.toLowerCase() : normalizeAccountEmail(value);
+}
+
+function internalAccountEmail(userId) {
+  return `account-${userId}@accounts.odakposta.invalid`;
 }
 
 function hashSecret(value) {

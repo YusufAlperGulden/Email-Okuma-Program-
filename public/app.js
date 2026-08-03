@@ -19,7 +19,7 @@
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
     accountUsername: $("#kullaniciAdiGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
-    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
+    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
     desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet")
   };
 
@@ -333,7 +333,7 @@
     state.authMode = mode;
     const registering = mode === "register";
     elements.loginTitle.textContent = registering ? "OdakPosta hesabı oluştur" : "OdakPosta'ya giriş yap";
-    elements.loginDescription.textContent = registering ? "Hesabın için e-posta adresini ve güçlü bir parola seç. Gmail hesabını sonraki adımda bağlayacaksın." : "Kendi e-posta adresin ve parolanla giriş yap.";
+    elements.loginDescription.textContent = registering ? "Hesabın için benzersiz bir kullanıcı adı ve güçlü bir parola seç. Gmail hesabını sonraki adımda bağlayacaksın." : "Kullanıcı adın ve parolanla giriş yap. Eski hesabın varsa mevcut e-posta adresinle de giriş yapabilirsin.";
     elements.loginButton.textContent = registering ? "Hesap oluştur" : "Giriş yap";
     elements.authToggle.textContent = registering ? "Zaten hesabın var mı? Giriş yap" : "Hesabın yok mu? Hesap oluştur";
     elements.passwordConfirmationField.hidden = !registering;
@@ -352,6 +352,7 @@
     elements.sync.disabled = true;
     elements.account.hidden = true;
     elements.deleteAccountButton.hidden = true;
+    if (elements.settingsButton) elements.settingsButton.hidden = true;
     elements.welcome.textContent = "Yerel veriler başlatılamadığı için OdakPosta şu anda kullanılamıyor.";
     elements.list.replaceChildren();
     elements.listStatus.innerHTML = "<div class=\"bos-durum\"><strong>Yerel veritabanı başlatılamadı.</strong><span>Masaüstü uygulamasını yeniden başlatın. Sorun sürerse ayarlarınızı gözden geçirin.</span></div>";
@@ -378,6 +379,7 @@
 
   function showDeleteAccount() {
     if (!state.user) return;
+    if (elements.settingsDialog?.open) elements.settingsDialog.close();
     elements.deleteAccountPassword.value = "";
     elements.deleteAccountError.textContent = "";
     if (!elements.deleteAccountDialog.open) elements.deleteAccountDialog.showModal();
@@ -403,18 +405,21 @@
 
   function updateAccountButton() {
     const username = state.user?.username || "";
-    const initials = username ? username.substring(0, 2).toUpperCase() : "OP";
+    const initials = username
+      ? username.split(/[._@-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
+      : "OP";
     elements.account.textContent = initials || "OP";
-    elements.account.title = username ? `${username} — hesap seçenekleri` : "Giriş yap";
+    elements.account.title = username ? `${username} — hesap ayarları` : "Giriş yap";
     elements.account.hidden = state.localMode;
     elements.deleteAccountButton.hidden = !username || state.localMode;
     if (elements.settingsButton) elements.settingsButton.hidden = !username || state.localMode;
   }
 
   function showAccountSettings() {
-    if (!state.user) return;
+    if (!state.user || state.localMode) return;
     elements.settingsUsername.value = state.user.username || "";
     elements.settingsNewPassword.value = "";
+    elements.settingsNewPasswordConfirmation.value = "";
     elements.settingsCurrentPassword.value = "";
     elements.settingsError.textContent = "";
     if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
@@ -422,24 +427,31 @@
   }
 
   async function saveAccountSettings() {
-    const newUsername = elements.settingsUsername.value.trim();
+    const username = elements.settingsUsername.value.trim();
     const newPassword = elements.settingsNewPassword.value;
+    const passwordConfirmation = elements.settingsNewPasswordConfirmation.value;
     const currentPassword = elements.settingsCurrentPassword.value;
 
-    if (!currentPassword) return;
+    if (!username) {
+      elements.settingsError.textContent = "Kullanıcı adı boş bırakılamaz.";
+      return;
+    }
+    if (!currentPassword) {
+      elements.settingsError.textContent = "Değişiklikleri kaydetmek için mevcut parolanı yaz.";
+      elements.settingsCurrentPassword.focus();
+      return;
+    }
 
     elements.settingsConfirm.disabled = true;
     elements.settingsError.textContent = "";
 
     try {
-      const result = await request("/api/auth/update", {
-        method: "POST",
-        body: JSON.stringify({ newUsername, newPassword, currentPassword })
+      const result = await request("/api/account", {
+        method: "PATCH",
+        body: JSON.stringify({ username, newPassword, passwordConfirmation, currentPassword })
       });
-      if (result && result.username) {
-        state.user.username = result.username;
-        updateAccountButton();
-      }
+      state.user = result?.user || { username };
+      updateAccountButton();
       elements.settingsDialog.close();
       notify("Hesap bilgilerin başarıyla güncellendi.", "basari");
     } catch (error) {
@@ -593,10 +605,12 @@
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
     if (elements.settingsForm) { elements.settingsForm.addEventListener("submit", event => { event.preventDefault(); void saveAccountSettings(); }); }
     if (elements.settingsButton) { elements.settingsButton.addEventListener("click", showAccountSettings); }
-    if ($("#hesapAyarlariKapat")) { $("#hesapAyarlariKapat").addEventListener("click", () => elements.settingsDialog.close()); }
+    if (elements.settingsClose) { elements.settingsClose.addEventListener("click", () => elements.settingsDialog.close()); }
+    if (elements.settingsLogout) { elements.settingsLogout.addEventListener("click", () => { elements.settingsDialog.close(); void logout(); }); }
+    if (elements.settingsDelete) { elements.settingsDelete.addEventListener("click", showDeleteAccount); }
     elements.desktopSettingsButton.addEventListener("click", () => { void showDesktopSettings(); }); elements.desktopSettingsForm.addEventListener("submit", event => { event.preventDefault(); void saveDesktopSettings(); }); elements.desktopSettingsClose.addEventListener("click", () => elements.desktopSettingsDialog.close());
     elements.theme.addEventListener("click", () => { const dark = !document.body.classList.contains("koyu"); document.body.classList.toggle("koyu", dark); localStorage.setItem("odak-posta-tema", dark ? "dark" : "light"); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç"); });
-    elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked && confirm("Oturumu kapatmak istiyor musun?")) logout(); });
+    elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked) showAccountSettings(); });
     elements.setupLink.addEventListener("click", connectGmail);
     elements.disconnectGmail.addEventListener("click", disconnectGmail);
   }
