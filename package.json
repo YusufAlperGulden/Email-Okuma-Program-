@@ -3,14 +3,51 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "electron/main.mjs",
   "description": "Kişisel, yapay zekâ destekli e-posta önceliklendirme paneli",
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
-    "check": "node --check server.mjs"
+    "desktop": "electron .",
+    "dist:win": "electron-builder --win nsis --x64",
+    "check": "node --check server.mjs && node --check electron/main.mjs && node --check electron/preload.cjs"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.5.4",
     "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.odakposta.desktop",
+    "productName": "OdakPosta",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "public/**/*",
+      "server.mjs",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/@electric-sql/pglite/dist/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "engines": {
     "node": ">=20"
