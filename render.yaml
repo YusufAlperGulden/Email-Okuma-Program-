@@ -1,0 +1,37 @@
+# Render Blueprint — secrets are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: odak-kutusu
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: odak-kutusu-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: DATA_DIR
+        value: /var/data
+      - key: APP_TIMEZONE
+        value: Europe/Istanbul
+      - key: AUTO_SYNC_MINUTES
+        value: "0"
+      - key: APP_PASSWORD
+        sync: false
+      - key: APP_ENCRYPTION_KEY
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite

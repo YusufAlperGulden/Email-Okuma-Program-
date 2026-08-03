@@ -1,0 +1,12 @@
+# Secrets and local message metadata
+.env
+data/*
+!data/.gitkeep
+
+# Runtime and editor files
+node_modules/
+.DS_Store
+npm-debug.log*
+pnpm-debug.log*
+*.log
+

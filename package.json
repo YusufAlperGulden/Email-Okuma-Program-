@@ -1,0 +1,15 @@
+{
+  "name": "odak-kutusu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kişisel, yapay zekâ destekli e-posta önceliklendirme paneli",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "check": "node --check server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

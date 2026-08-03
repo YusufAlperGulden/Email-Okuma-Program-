@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#15223d" />
+    <meta name="description" content="Yapay zekâ destekli kişisel e-posta önceliklendirme paneli" />
+    <title>Odak Posta</title>
+    <link rel="stylesheet" href="/styles.css?v=1" />
+  </head>
+  <body>
+    <a class="atla" href="#ana-icerik">Ana içeriğe geç</a>
+
+    <div class="uygulama-kabugu">
+      <header class="ust-cubuk">
+        <a class="marka" href="/" aria-label="Odak Posta ana sayfa">
+          <span class="marka-ikonu" aria-hidden="true">✦</span>
+          <span>Odak<span>Posta</span></span>
+        </a>
+
+        <div class="ust-araclar">
+          <span class="durum-rozet" id="baglantiDurumu" title="Bağlantı durumu">
+            <i></i><span>Hazırlanıyor</span>
+          </span>
+          <button class="ikon-dugme" id="temaDugmesi" type="button" aria-label="Koyu temayı aç" title="Temayı değiştir">◐</button>
+          <button class="profil-dugmesi" id="oturumDugmesi" type="button" aria-label="Oturum seçenekleri" title="Oturum seçenekleri">OP</button>
+        </div>
+      </header>
+
+      <main id="ana-icerik" class="icerik" tabindex="-1">
+        <section class="karsilama" aria-labelledby="baslik">
+          <div>
+            <p class="goz-bant">YAPAY ZEKÂ E-POSTA ASİSTANIN</p>
+            <h1 id="baslik">Bugün gerçekten <em>önemli</em> olanlar.</h1>
+            <p class="alt-baslik" id="karsilamaMetni">Kutunuzdaki e-postalar önceliklendiriliyor.</p>
+          </div>
+          <div class="karsilama-eylemleri">
+            <span class="son-guncelleme" id="sonGuncelleme">—</span>
+            <button class="birincil-dugme" id="esitleDugmesi" type="button">
+              <span aria-hidden="true">↻</span> Postaları yenile
+            </button>
+          </div>
+        </section>
+
+        <section class="uyari demo-uyari" id="demoUyarisi" hidden role="status">
+          <span aria-hidden="true">◈</span>
+          <p><strong>Demo modundasın.</strong> E-posta sunucusuna bağlanılamadığı için örnek veriler gösteriliyor.</p>
+        </section>
+
+        <section class="kurulum-paneli" id="kurulumPaneli" hidden aria-labelledby="kurulumBasligi">
+          <div class="kurulum-ikon" aria-hidden="true">⌁</div>
+          <div>
+            <p class="goz-bant">BAĞLANTI GEREKLİ</p>
+            <h2 id="kurulumBasligi">Posta kutunu bağlaman gerekiyor.</h2>
+            <p>Gelen kutunu güvenli biçimde bağladıktan sonra OdakPosta önceliklerini burada gösterecek.</p>
+          </div>
+          <a class="ikincil-dugme" id="kurulumaGit" href="#">Kurulumu aç</a>
+        </section>
+
+        <section class="istatistikler" aria-label="E-posta özeti">
+          <article class="istatistik-karti vurgu-mavi" data-filtre="today" tabindex="0" role="button" aria-label="Bugün gelen postaları göster">
+            <span class="istatistik-ikon" aria-hidden="true">☀</span>
+            <div><span>Bugün</span><strong id="bugunSayisi">0</strong><small id="bugunAlt">yeni e-posta</small></div>
+          </article>
+          <article class="istatistik-karti vurgu-kirmizi" data-filtre="action" tabindex="0" role="button" aria-label="Aksiyon gerekli postaları göster">
+            <span class="istatistik-ikon" aria-hidden="true">!</span>
+            <div><span>Aksiyon gerekli</span><strong id="aksiyonSayisi">0</strong><small id="aksiyonAlt">yanıt bekliyor</small></div>
+          </article>
+          <article class="istatistik-karti vurgu-turuncu" data-filtre="followup" tabindex="0" role="button" aria-label="Takip edilmesi gereken postaları göster">
+            <span class="istatistik-ikon" aria-hidden="true">↗</span>
+            <div><span>Unutulan / Takip</span><strong id="takipSayisi">0</strong><small id="takipAlt">hatırlatılacak</small></div>
+          </article>
+          <article class="istatistik-karti vurgu-yesil" data-filtre="info" tabindex="0" role="button" aria-label="Bilgilendirme postalarını göster">
+            <span class="istatistik-ikon" aria-hidden="true">i</span>
+            <div><span>Bilgi</span><strong id="bilgiSayisi">0</strong><small id="bilgiAlt">okunabilir</small></div>
+          </article>
+        </section>
+
+        <section class="odak-ozeti" aria-labelledby="odakOzetiBaslik">
+          <div class="odak-ikon" aria-hidden="true">✦</div>
+          <div>
+            <p class="goz-bant">YAPAY ZEKÂ ODAĞI</p>
+            <h2 id="odakOzetiBaslik">Günün kısa özeti hazırlanıyor…</h2>
+            <p id="odakOzetiMetni">Postalar analiz edildikten sonra burada günün öncelikleri gösterilecek.</p>
+          </div>
+        </section>
+
+        <section class="posta-alani" aria-labelledby="postaBasligi">
+          <div class="bolum-basligi">
+            <div>
+              <p class="goz-bant">AKILLI GELEN KUTUSU</p>
+              <h2 id="postaBasligi">Öncelik sırası</h2>
+            </div>
+            <label class="arama" for="aramaGirdisi">
+              <span aria-hidden="true">⌕</span>
+              <input id="aramaGirdisi" type="search" placeholder="Posta ara…" autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="filtreler" role="toolbar" aria-label="E-posta filtresi">
+            <button class="filtre etkin" type="button" data-filtre="all">Tümü <span id="tumSayisi">0</span></button>
+            <button class="filtre" type="button" data-filtre="action">Aksiyon gerekli <span id="filtreAksiyonSayisi">0</span></button>
+            <button class="filtre" type="button" data-filtre="followup">Takip <span id="filtreTakipSayisi">0</span></button>
+            <button class="filtre" type="button" data-filtre="info">Bilgi</button>
+            <button class="filtre" type="button" data-filtre="done">Tamamlananlar</button>
+          </div>
+
+          <div class="posta-liste-durumu" id="listeDurumu" aria-live="polite"></div>
+          <div class="posta-listesi" id="postaListesi" aria-live="polite"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="postaKartiSablonu">
+      <article class="posta-karti">
+        <div class="oncelik-seridi" aria-hidden="true"></div>
+        <div class="posta-govdesi">
+          <div class="posta-ust">
+            <div class="gonderen-alani">
+              <span class="avatar"></span>
+              <div><strong class="gonderen"></strong><span class="zaman"></span></div>
+            </div>
+            <div class="etiketler"><span class="oncelik-etiketi"></span><span class="durum-etiketi"></span></div>
+          </div>
+          <h3 class="konu"></h3>
+          <p class="ozet"></p>
+          <div class="neden-satiri"><span aria-hidden="true">✦</span><span class="neden"></span></div>
+          <div class="aksiyon-satiri">
+            <span class="aksiyon-baslik">Önerilen aksiyon:</span>
+            <span class="aksiyon-metni"></span>
+          </div>
+          <div class="kart-eylemleri">
+            <button class="kart-dugme incele-dugmesi" type="button">E-postayı aç <span aria-hidden="true">↗</span></button>
+            <button class="kart-dugme tamamla-dugmesi" type="button">Tamamlandı</button>
+            <button class="kart-dugme ertele-dugmesi" type="button">Ertele</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <dialog class="giris-penceresi" id="girisPenceresi" aria-labelledby="girisBasligi">
+      <form method="dialog" id="girisFormu">
+        <button class="pencere-kapat" type="button" id="girisKapat" aria-label="Giriş penceresini kapat">×</button>
+        <div class="giris-ikon" aria-hidden="true">✦</div>
+        <p class="goz-bant">GÜVENLİ ERİŞİM</p>
+        <h2 id="girisBasligi">OdakPosta'ya giriş yap</h2>
+        <p>Yöneticinin belirlediği uygulama parolasını gir.</p>
+        <label for="parolaGirdisi">Uygulama parolası</label>
+        <input id="parolaGirdisi" type="password" autocomplete="current-password" required />
+        <p class="form-hatasi" id="girisHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik" type="submit" id="girisGonder">Giriş yap</button>
+      </form>
+    </dialog>
+
+    <dialog class="ertele-penceresi" id="ertelePenceresi" aria-labelledby="erteleBasligi">
+      <form method="dialog" id="erteleFormu">
+        <button class="pencere-kapat" type="button" id="erteleKapat" aria-label="Erteleme penceresini kapat">×</button>
+        <p class="goz-bant">HATIRLATICI</p>
+        <h2 id="erteleBasligi">Ne zaman hatırlatalım?</h2>
+        <label for="erteleTarihi">Tarih ve saat</label>
+        <input id="erteleTarihi" type="datetime-local" required />
+        <p class="form-hatasi" id="erteleHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik" type="submit">Hatırlatıcı oluştur</button>
+      </form>
+    </dialog>
+
+    <div class="bildirimler" id="bildirimler" aria-live="polite" aria-atomic="true"></div>
+    <script src="/app.js?v=1" defer></script>
+  </body>
+</html>
