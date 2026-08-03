@@ -241,7 +241,7 @@ async function route(req, res) {
     return finishGoogleOAuth(requestUrl, res, session);
   }
   if (method === 'GET' && pathname === '/api/dashboard') return dashboard(res, session.userId);
-  if (method === 'GET' && pathname === '/api/demo') return sendJson(res, 200, { emails: demoEmails(), stats: statsFor(demoEmails()), demo: true });
+
   if (method === 'POST' && pathname === '/api/sync') return sync(req, res, session.userId);
   if (method === 'POST' && pathname === '/api/disconnect') return disconnectGoogle(res, session.userId);
 
@@ -1483,42 +1483,7 @@ function gmailOriginalUrl(threadId, id) {
   return `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(threadId || id)}`;
 }
 
-function demoEmails() {
-  return [
-    {
-      id: 'demo-1', threadId: 'demo-1', from: 'Merve Kaya <merve@atlaslojistik.com>', subject: 'Sözleşme revizyonu için bugün onay gerekiyor', receivedAt: isoHoursAgo(1.2),
-      snippet: 'Revize edilmiş sözleşmeyi bugün 16.00’ya kadar onaylamanız gerekiyor.',
-      summary: 'Müşteri, revize sözleşmenin bugün saat 16.00’ya kadar onaylanmasını istiyor. Onay gecikirse sevkiyat takvimi etkilenebilir.',
-      priority: 'urgent', reason: 'Bugün net bir son tarih var ve müşteri operasyonu etkilenebilir.', needsReply: true, replyDeadlineAt: isoTodayAt(16),
-      actionItems: [{ task: 'Revize sözleşmeyi kontrol edip onay veya düzeltme dönüşü yap', dueAt: isoTodayAt(16) }], followUpState: 'waiting_on_me', possiblePromptInjection: false, status: 'open', snoozedUntil: null, analyzedAt: new Date().toISOString(), analysisSource: 'demo', originalUrl: 'https://mail.google.com/'
-    },
-    {
-      id: 'demo-2', threadId: 'demo-2', from: 'Finans Ekibi <finans@ornekfirma.com>', subject: 'Temmuz gider formu eksik belge', receivedAt: isoHoursAgo(3),
-      snippet: 'Gider formunuz için fatura eki görünmüyor; yarına kadar yükleyebilir misiniz?',
-      summary: 'Finans ekibi, Temmuz gider formundaki fatura ekinin eksik olduğunu bildiriyor. Belgenin yarına kadar yüklenmesi istenmiş.',
-      priority: 'action_required', reason: 'Sizden açıkça belge yüklemeniz isteniyor.', needsReply: true, replyDeadlineAt: isoTomorrowAt(12),
-      actionItems: [{ task: 'Eksik faturayı bulup gider formuna ekle', dueAt: isoTomorrowAt(12) }], followUpState: 'waiting_on_me', possiblePromptInjection: false, status: 'open', snoozedUntil: null, analyzedAt: new Date().toISOString(), analysisSource: 'demo', originalUrl: 'https://mail.google.com/'
-    },
-    {
-      id: 'demo-3', threadId: 'demo-3', from: 'Ahmet Yılmaz <ahmet@partner.com>', subject: 'Teklif hakkında dönüş bekliyoruz', receivedAt: isoHoursAgo(28),
-      snippet: 'Geçen hafta paylaştığınız teklif hakkında ekibinizin kararını bekliyoruz.',
-      summary: 'İş ortağı, geçen hafta gönderilen teklif hakkında hâlâ karar bekliyor. Bu konu takip gerektiriyor.',
-      priority: 'important', reason: 'Dış paydaş sizden karar bekliyor ve bekleme süresi uzamış.', needsReply: true, replyDeadlineAt: null,
-      actionItems: [{ task: 'Teklif durumunu kontrol edip Ahmet’e güncelleme gönder', dueAt: null }], followUpState: 'overdue', possiblePromptInjection: false, status: 'open', snoozedUntil: null, analyzedAt: new Date().toISOString(), analysisSource: 'demo', originalUrl: 'https://mail.google.com/'
-    },
-    {
-      id: 'demo-4', threadId: 'demo-4', from: 'Ürün Bülteni <news@araclar.io>', subject: 'Ağustos ürün güncellemeleri', receivedAt: isoHoursAgo(8),
-      snippet: 'Bu ay yayınlanan yeni özelliklerin özeti.',
-      summary: 'Ürün ekibinin aylık güncelleme bülteni. Acil işlem gerektirmiyor.',
-      priority: 'low', reason: 'Bilgilendirme/bülten niteliğinde.', needsReply: false, replyDeadlineAt: null,
-      actionItems: [], followUpState: 'none', possiblePromptInjection: false, status: 'open', snoozedUntil: null, analyzedAt: new Date().toISOString(), analysisSource: 'demo', originalUrl: 'https://mail.google.com/'
-    }
-  ];
-}
 
-function isoHoursAgo(hours) { return new Date(Date.now() - hours * 3_600_000).toISOString(); }
-function isoTodayAt(hour) { const d = new Date(); d.setHours(hour, 0, 0, 0); return d.toISOString(); }
-function isoTomorrowAt(hour) { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(hour, 0, 0, 0); return d.toISOString(); }
 
 async function serveStatic(pathname, res, headOnly) {
   const requested = pathname === '/' ? '/index.html' : pathname;

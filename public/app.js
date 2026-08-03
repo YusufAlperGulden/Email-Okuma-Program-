@@ -1,44 +1,7 @@
 (() => {
   "use strict";
 
-  const demoEmails = [
-    {
-      id: "demo-1", sender: "Ayşe Demir · Nova Lojistik", subject: "Teklif onayı için son tarih bugün", receivedAt: "2026-08-03T08:42:00+03:00",
-      summary: "Yarın başlayacak taşıma işi için teklif onayının bugün 16.00'ya kadar iletilmesi isteniyor.",
-      importanceReason: "Bugün son tarih var ve iş başlangıcını etkiliyor.", action: "16.00'ya kadar onayla veya revize iste.",
-      category: "action", priority: "Yüksek", status: "open"
-    },
-    {
-      id: "demo-2", sender: "Murat Kaya · Finans", subject: "Temmuz gider raporu: eksik belge hatırlatması", receivedAt: "2026-08-03T07:55:00+03:00",
-      summary: "Gider raporunda iki fiş eksik görünüyor; muhasebe kapanışı için belgelerin paylaşılması gerekiyor.",
-      importanceReason: "Kapanış süreci bekliyor; daha önce de hatırlatılmış.", action: "Eksik iki belgeyi gün içinde gönder.",
-      category: "followup", priority: "Takip", status: "open"
-    },
-    {
-      id: "demo-3", sender: "Zeynep Arslan · Müşteri Başarı", subject: "Atlas A.Ş. toplantı notları", receivedAt: "2026-08-03T09:14:00+03:00",
-      summary: "Müşteri, yeni panel raporunu olumlu değerlendirdi ve cuma gününe kadar kısa bir eğitim planı bekliyor.",
-      importanceReason: "Müşteri beklentisi ve net bir sonraki adım içeriyor.", action: "Cuma için eğitim planı taslağını paylaş.",
-      category: "action", priority: "Yüksek", status: "open"
-    },
-    {
-      id: "demo-4", sender: "İnsan ve Kültür", subject: "Ağustos eğitim takvimi yayımlandı", receivedAt: "2026-08-03T06:30:00+03:00",
-      summary: "Bu ayın zorunlu ve isteğe bağlı kurum içi eğitim tarihleri paylaşıldı.",
-      importanceReason: "Bilgilendirme amaçlı; acil yanıt beklenmiyor.", action: "Uygun olduğunda eğitim tarihlerini incele.",
-      category: "info", priority: "Bilgi", status: "open"
-    },
-    {
-      id: "demo-5", sender: "Can Akın · Ürün", subject: "Sürüm 2.4 yayın notları", receivedAt: "2026-08-02T16:12:00+03:00",
-      summary: "Rapor dışa aktarma ve bildirim tercihleri için iyileştirmeler canlıya alındı.",
-      importanceReason: "Bilgilendirme; doğrudan aksiyon gerektirmiyor.", action: "Gerektiğinde yeni özellikleri gözden geçir.",
-      category: "info", priority: "Bilgi", status: "open"
-    },
-    {
-      id: "demo-6", sender: "Deniz Aksoy · Satın Alma", subject: "Tedarikçi sözleşmesi onaylandı", receivedAt: "2026-08-02T14:05:00+03:00",
-      summary: "Sözleşme hukuk tarafından onaylandı; işlem kaydı tamamlandı.",
-      importanceReason: "Bilgi için saklandı; bekleyen aksiyon yok.", action: "Gerekli değil.",
-      category: "info", priority: "Tamamlandı", status: "done"
-    }
-  ];
+
 
   const state = {
     emails: [], stats: {}, connection: {}, activeFilter: "all", query: "", isDemo: false,
@@ -85,14 +48,7 @@
     };
   }
 
-  function useDemo(reason = "") {
-    state.emails = demoEmails.map(normaliseEmail);
-    state.stats = {};
-    state.connection = { connected: false, demo: true };
-    state.isDemo = true;
-    if (reason) console.info("Demo modu:", reason);
-    render();
-  }
+
 
   async function request(path, options = {}) {
     const response = await fetch(path, {
