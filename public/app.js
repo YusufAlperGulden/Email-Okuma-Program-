@@ -42,17 +42,18 @@
 
   const state = {
     emails: [], stats: {}, connection: {}, activeFilter: "all", query: "", isDemo: false,
-    currentSnoozeId: null, authChecked: false, loginRequired: false
+    currentSnoozeId: null, authChecked: false, loginRequired: false, user: null,
+    authMode: "login", dashboardRefreshTimer: null
   };
 
   const $ = (selector, scope = document) => scope.querySelector(selector);
   const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
   const elements = {
-    connection: $("#baglantiDurumu"), demoNotice: $("#demoUyarisi"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"),
+    connection: $("#baglantiDurumu"), demoNotice: $("#demoUyarisi"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
-    focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"),
-    password: $("#parolaGirdisi"), loginButton: $("#girisGonder"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
+    focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
+    accountEmail: $("#hesapEpostaGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
     snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi")
   };
 
@@ -94,25 +95,36 @@
       headers: { "Content-Type": "application/json", ...(options.headers || {}) },
       ...options
     });
-    if (response.status === 401) {
-      const error = new Error("Giriş gerekli"); error.code = 401; throw error;
-    }
-    if (!response.ok) throw new Error(`İstek başarısız (${response.status})`);
     const type = response.headers.get("content-type") || "";
-    return type.includes("application/json") ? response.json() : null;
+    const payload = type.includes("application/json") ? await response.json().catch(() => null) : null;
+    if (!response.ok) {
+      const error = new Error(payload?.error || `İstek başarısız (${response.status})`);
+      error.code = payload?.code || response.status;
+      error.status = response.status;
+      throw error;
+    }
+    return payload;
   }
 
   async function checkAuth() {
     try {
       const auth = await request("/api/auth/status");
       state.authChecked = true;
-      state.loginRequired = Boolean((auth?.required || auth?.passwordRequired) && !auth?.authenticated);
+      state.user = auth?.user || null;
+      if (!auth?.databaseConfigured) {
+        state.loginRequired = true;
+        showLogin("login", "Sunucu henüz kullanıcı veritabanına bağlanmadı. Yönetici DATABASE_URL ayarını tamamlamalı.");
+        return false;
+      }
+      state.loginRequired = !auth?.authenticated;
+      updateAccountButton();
       if (state.loginRequired) showLogin();
       return !state.loginRequired;
     } catch (error) {
-      // Uygulamanın eski sürümlerinde bu uç nokta olmayabilir; dashboard denemeye devam eder.
       state.authChecked = true;
-      return true;
+      state.loginRequired = true;
+      showLogin("login", "Giriş durumu alınamadı. Lütfen bağlantını tekrar kontrol et.");
+      return false;
     }
   }
 
@@ -126,21 +138,8 @@
       state.connection = data?.connection || {};
       state.isDemo = false;
       elements.demoNotice.hidden = true;
-      // Gmail henüz bağlanmadıysa boş bir ekran yerine ürünün nasıl çalıştığını göster.
-      if (state.connection?.gmailConnected === false && rawEmails.length === 0) {
-        try {
-          const demo = await request("/api/demo");
-          state.emails = (demo?.emails || demo || demoEmails).map(normaliseEmail);
-          state.stats = demo?.stats || {};
-          state.connection = { ...state.connection, demo: true };
-          state.isDemo = true;
-          elements.demoNotice.hidden = false;
-        } catch (_) {
-          useDemo("Gmail bağlı değil");
-          return;
-        }
-      }
       render();
+      scheduleDashboardRefresh();
     } catch (error) {
       if (error.code === 401) {
         state.loginRequired = true;
@@ -148,18 +147,18 @@
         elements.listStatus.innerHTML = "";
         return;
       }
-      // Önce sunucunun isteğe bağlı demo uç noktasını dene, o da yoksa gömülü veri kullan.
-      try {
-        const data = await request("/api/demo");
-        state.emails = (data?.emails || data || demoEmails).map(normaliseEmail);
-        state.stats = data?.stats || {};
-        state.connection = { ...(data?.connection || {}), demo: true };
-        state.isDemo = true;
-        elements.demoNotice.hidden = false;
-        render();
-      } catch (_) {
-        useDemo(error.message);
-      }
+      elements.listStatus.innerHTML = `<div class="bos-durum"><strong>Panel şu anda yüklenemedi.</strong><span>${error.message || "Lütfen daha sonra tekrar deneyin."}</span></div>`;
+    }
+  }
+
+  function scheduleDashboardRefresh() {
+    if (state.dashboardRefreshTimer) window.clearTimeout(state.dashboardRefreshTimer);
+    state.dashboardRefreshTimer = null;
+    // The OAuth callback starts the first background summary job. Refresh the
+    // visible dashboard until it completes so the user never needs to click
+    // the manual button merely to see the first summaries.
+    if (!state.isDemo && state.connection?.syncInProgress) {
+      state.dashboardRefreshTimer = window.setTimeout(() => { void loadDashboard(); }, 3000);
     }
   }
 
@@ -254,14 +253,32 @@
     const configuredConnection = state.connection?.gmailConnected ?? state.connection?.connected;
     const connected = Boolean(configuredConnection) && !state.isDemo;
     elements.connection.classList.toggle("hata", !connected);
-    $("span", elements.connection).textContent = connected ? "Bağlı" : "Demo modu";
+    $("span", elements.connection).textContent = connected ? "Gmail bağlı" : "Gmail bekliyor";
     const noConnection = !connected;
     elements.setup.hidden = !noConnection;
-    elements.setupLink.href = state.connection?.gmailConfigured === false ? "#" : "/auth/google";
-    elements.setupLink.textContent = state.connection?.gmailConfigured === false ? "Kurulum bilgisi" : "Gmail'i bağla";
-    const owner = state.connection?.email || state.connection?.account;
-    elements.welcome.textContent = state.isDemo ? "Örnek e-postalarla akıllı önceliklendirmeyi keşfet." : owner ? `${owner} için öncelikler yapay zekâ ile sıralandı.` : "Gelen kutundaki önemli konular yapay zekâ ile sıralandı.";
-    elements.updated.textContent = state.isDemo ? "Örnek veriler" : state.connection?.lastSyncAt ? `Son eşitleme ${relativeTime(state.connection.lastSyncAt)}` : "Henüz eşitlenmedi";
+    elements.connectedGmail.hidden = !connected;
+    elements.setupLink.disabled = state.connection?.gmailConfigured === false;
+    elements.setupLink.textContent = state.connection?.gmailConfigured === false ? "Google ayarı gerekli" : "Gmail’i bağla";
+    const owner = state.connection?.gmailAddress || state.connection?.email || state.connection?.account;
+    if (connected) {
+      elements.connectedGmailDescription.textContent = owner
+        ? `${owner} hesabının e-postaları yalnızca bu OdakPosta hesabında özetlenir.`
+        : "Bu hesabın e-postaları yalnızca kendi panelinde özetlenir.";
+    }
+    elements.welcome.textContent = !connected
+      ? `${state.user?.email || "Hesabın"} hazır. Kendi Gmail hesabını bağlayarak kişisel özetlerini gör.`
+      : owner ? `${owner} için öncelikler yapay zekâ ile sıralandı.` : "Gelen kutundaki önemli konular yapay zekâ ile sıralandı.";
+    const warning = state.connection?.lastAnalysisWarning;
+    elements.updated.title = warning || "";
+    elements.updated.textContent = state.isDemo
+      ? "Örnek veriler"
+      : state.connection?.syncInProgress
+        ? "E-postalar yapay zekâ ile özetleniyor…"
+        : warning
+          ? "Bazı özetler yeniden denenecek"
+          : state.connection?.lastSyncAt
+            ? `Son eşitleme ${relativeTime(state.connection.lastSyncAt)}`
+            : "Henüz eşitlenmedi";
   }
 
   function renderList() {
@@ -318,27 +335,76 @@
   }
 
   async function sync() {
-    if (state.isDemo) { notify("Demo verileri zaten güncel.", "uyari"); return; }
+    if (!state.connection?.gmailConnected) { notify("Önce kendi Gmail hesabını bağlamalısın.", "uyari"); return; }
     elements.sync.disabled = true; elements.sync.innerHTML = '<span aria-hidden="true">↻</span> Yenileniyor…';
     try { await request("/api/sync", { method: "POST", body: "{}" }); await loadDashboard(); notify("Gelen kutusu yenilendi.", "basari"); }
-    catch (error) { notify(error.code === 401 ? "Yenilemek için giriş yapmalısın." : "E-postalar yenilenemedi.", "uyari"); if (error.code === 401) showLogin(); }
+    catch (error) { notify(error.status === 401 ? "Yenilemek için giriş yapmalısın." : error.message || "E-postalar yenilenemedi.", "uyari"); if (error.status === 401) showLogin(); }
     finally { elements.sync.disabled = false; elements.sync.innerHTML = '<span aria-hidden="true">↻</span> Postaları yenile'; }
   }
 
   function notify(message, type = "") { const note = document.createElement("div"); note.className = `bildirim ${type}`; note.textContent = message; elements.notifications.append(note); window.setTimeout(() => note.remove(), 4200); }
-  function showLogin() { elements.loginError.textContent = ""; if (!elements.login.open) elements.login.showModal(); window.setTimeout(() => elements.password.focus(), 30); }
-  async function login() {
-    const password = elements.password.value; if (!password) return;
+  function showLogin(mode = state.authMode, message = "") {
+    state.authMode = mode;
+    const registering = mode === "register";
+    elements.loginTitle.textContent = registering ? "OdakPosta hesabı oluştur" : "OdakPosta'ya giriş yap";
+    elements.loginDescription.textContent = registering ? "Hesabın için e-posta adresini ve güçlü bir parola seç. Gmail hesabını sonraki adımda bağlayacaksın." : "Kendi e-posta adresin ve parolanla giriş yap.";
+    elements.loginButton.textContent = registering ? "Hesap oluştur" : "Giriş yap";
+    elements.authToggle.textContent = registering ? "Zaten hesabın var mı? Giriş yap" : "Hesabın yok mu? Hesap oluştur";
+    elements.passwordConfirmationField.hidden = !registering;
+    elements.passwordConfirmation.required = registering;
+    elements.password.autocomplete = registering ? "new-password" : "current-password";
+    elements.loginError.textContent = message;
+    if (!elements.login.open) elements.login.showModal();
+    window.setTimeout(() => elements.accountEmail.focus(), 30);
+  }
+
+  async function submitAuth() {
+    const email = elements.accountEmail.value.trim(); const password = elements.password.value; const passwordConfirmation = elements.passwordConfirmation.value;
+    if (!email || !password || (state.authMode === "register" && !passwordConfirmation)) return;
     elements.loginButton.disabled = true; elements.loginError.textContent = "";
-    try { await request("/api/login", { method: "POST", body: JSON.stringify({ password }) }); elements.password.value = ""; elements.login.close(); state.loginRequired = false; await loadDashboard(); notify("Giriş başarılı.", "basari"); }
-    catch (error) { elements.loginError.textContent = error.code === 401 ? "Parola doğru değil." : "Giriş yapılamadı. Bağlantını kontrol et."; }
+    try {
+      const registering = state.authMode === "register";
+      const result = await request(registering ? "/api/auth/register" : "/api/login", { method: "POST", body: JSON.stringify({ email, password, passwordConfirmation }) });
+      state.user = result?.user || { email };
+      elements.password.value = ""; elements.passwordConfirmation.value = ""; elements.login.close(); state.loginRequired = false; updateAccountButton(); await loadDashboard(); notify(registering ? "Hesabın oluşturuldu. Şimdi Gmail hesabını bağlayabilirsin." : "Giriş başarılı.", "basari");
+    }
+    catch (error) { elements.loginError.textContent = error.message || "Giriş yapılamadı. Bağlantını kontrol et."; }
     finally { elements.loginButton.disabled = false; }
   }
 
   async function logout() {
-    if (state.isDemo) { notify("Demo modunda oturum yok.", "uyari"); return; }
-    try { await request("/api/logout", { method: "POST", body: "{}" }); showLogin(); }
+    try { await request("/api/logout", { method: "POST", body: "{}" }); state.user = null; state.connection = {}; state.emails = []; updateAccountButton(); showLogin("login"); }
     catch (_) { notify("Oturum kapatılamadı.", "uyari"); }
+  }
+
+  function updateAccountButton() {
+    const email = state.user?.email || "";
+    const initials = email ? email.split("@")[0].split(/[._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() : "OP";
+    elements.account.textContent = initials || "OP";
+    elements.account.title = email ? `${email} — çıkış seçenekleri` : "Giriş yap";
+  }
+
+  function connectGmail() {
+    if (elements.setupLink.disabled) { notify("Gmail bağlantısı için sunucuda Google OAuth bilgileri yapılandırılmalı.", "uyari"); return; }
+    const hint = elements.gmailAddress.value.trim();
+    if (hint && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hint)) { notify("Geçerli bir Gmail adresi yaz veya alanı boş bırak.", "uyari"); return; }
+    window.location.assign(`/auth/google${hint ? `?email=${encodeURIComponent(hint)}` : ""}`);
+  }
+
+  async function disconnectGmail() {
+    if (!confirm("Gmail bağlantısı kaldırılacak ve bu Gmail hesabına ait kaydedilmiş özetler silinecek. Devam etmek istiyor musun?")) return;
+    elements.disconnectGmail.disabled = true;
+    try {
+      await request("/api/disconnect", { method: "POST", body: "{}" });
+      state.emails = []; state.stats = {}; state.connection = { gmailConnected: false, gmailConfigured: state.connection?.gmailConfigured };
+      render();
+      elements.gmailAddress.focus();
+      notify("Gmail bağlantısı kaldırıldı. Başka bir hesabı bağlayabilirsin.", "basari");
+    } catch (error) {
+      notify(error.message || "Gmail bağlantısı kaldırılamadı.", "uyari");
+    } finally {
+      elements.disconnectGmail.disabled = false;
+    }
   }
 
   function initialiseTheme() {
@@ -352,15 +418,11 @@
     elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
     elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
-    elements.loginForm.addEventListener("submit", event => { event.preventDefault(); login(); }); $("#girisKapat").addEventListener("click", () => elements.login.close());
+    elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.theme.addEventListener("click", () => { const dark = !document.body.classList.contains("koyu"); document.body.classList.toggle("koyu", dark); localStorage.setItem("odak-posta-tema", dark ? "dark" : "light"); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç"); });
-    elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked && !state.isDemo && confirm("Oturumu kapatmak istiyor musun?")) logout(); else notify(state.isDemo ? "Demo modundasın." : "Oturumun açık."); });
-    elements.setupLink.addEventListener("click", event => {
-      if (elements.setupLink.getAttribute("href") === "#") {
-        event.preventDefault();
-        notify("Gmail bağlantısı için sunucuda Google OAuth bilgileri yapılandırılmalı.", "uyari");
-      }
-    });
+    elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked && confirm("Oturumu kapatmak istiyor musun?")) logout(); });
+    elements.setupLink.addEventListener("click", connectGmail);
+    elements.disconnectGmail.addEventListener("click", disconnectGmail);
   }
 
   async function boot() { initialiseTheme(); bindEvents(); const allowed = await checkAuth(); if (allowed) await loadDashboard(); }

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#15223d" />
     <meta name="description" content="Yapay zekâ destekli kişisel e-posta önceliklendirme paneli" />
     <title>Odak Posta</title>
-    <link rel="stylesheet" href="/styles.css?v=1" />
+    <link rel="stylesheet" href="/styles.css?v=2" />
   </head>
   <body>
     <a class="atla" href="#ana-icerik">Ana içeriğe geç</a>
@@ -54,7 +54,21 @@
             <h2 id="kurulumBasligi">Posta kutunu bağlaman gerekiyor.</h2>
             <p>Gelen kutunu güvenli biçimde bağladıktan sonra OdakPosta önceliklerini burada gösterecek.</p>
           </div>
-          <a class="ikincil-dugme" id="kurulumaGit" href="#">Kurulumu aç</a>
+          <div class="gmail-baglanti-formu">
+            <label for="gmailAdresGirdisi">Bağlamak istediğin Gmail adresi</label>
+            <input id="gmailAdresGirdisi" type="email" autocomplete="email" inputmode="email" placeholder="ornek@gmail.com" />
+            <button class="ikincil-dugme" id="kurulumaGit" type="button">Gmail’i bağla</button>
+          </div>
+        </section>
+
+        <section class="kurulum-paneli" id="bagliGmailPaneli" hidden aria-labelledby="bagliGmailBasligi">
+          <div class="kurulum-ikon" aria-hidden="true">✓</div>
+          <div>
+            <p class="goz-bant">GMAIL BAĞLI</p>
+            <h2 id="bagliGmailBasligi">Kişisel posta kutun bağlı.</h2>
+            <p id="bagliGmailAciklamasi">Bu hesabın e-postaları yalnızca kendi panelinde özetlenir.</p>
+          </div>
+          <button class="ikincil-dugme" id="gmailBaglantisiniKes" type="button">Gmail’i değiştir</button>
         </section>
 
         <section class="istatistikler" aria-label="E-posta özeti">
@@ -144,11 +158,18 @@
         <div class="giris-ikon" aria-hidden="true">✦</div>
         <p class="goz-bant">GÜVENLİ ERİŞİM</p>
         <h2 id="girisBasligi">OdakPosta'ya giriş yap</h2>
-        <p>Yöneticinin belirlediği uygulama parolasını gir.</p>
-        <label for="parolaGirdisi">Uygulama parolası</label>
+        <p id="girisAciklamasi">Kendi e-posta adresin ve parolanla giriş yap.</p>
+        <label for="hesapEpostaGirdisi">Hesap e-posta adresi</label>
+        <input id="hesapEpostaGirdisi" type="email" autocomplete="email" autocapitalize="none" inputmode="email" required />
+        <label for="parolaGirdisi">Parola</label>
         <input id="parolaGirdisi" type="password" autocomplete="current-password" required />
+        <div id="parolaTekrarAlani" hidden>
+          <label for="parolaTekrarGirdisi">Parolayı tekrar yaz</label>
+          <input id="parolaTekrarGirdisi" type="password" autocomplete="new-password" />
+        </div>
         <p class="form-hatasi" id="girisHatasi" aria-live="polite"></p>
         <button class="birincil-dugme tam-genislik" type="submit" id="girisGonder">Giriş yap</button>
+        <button class="metin-dugme" type="button" id="kimlikModuDegistir">Hesabın yok mu? Hesap oluştur</button>
       </form>
     </dialog>
 
@@ -165,6 +186,6 @@
     </dialog>
 
     <div class="bildirimler" id="bildirimler" aria-live="polite" aria-atomic="true"></div>
-    <script src="/app.js?v=1" defer></script>
+    <script src="/app.js?v=2" defer></script>
   </body>
 </html>

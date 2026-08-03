@@ -8,23 +8,21 @@ services:
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
-    disk:
-      name: odak-kutusu-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: odak-kutusu-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "true"
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
         value: 22
-      - key: DATA_DIR
-        value: /var/data
       - key: APP_TIMEZONE
         value: Europe/Istanbul
       - key: AUTO_SYNC_MINUTES
-        value: "0"
-      - key: APP_PASSWORD
-        sync: false
+        value: "15"
       - key: APP_ENCRYPTION_KEY
         generateValue: true
       - key: GOOGLE_CLIENT_ID
@@ -35,3 +33,9 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash-lite
+
+databases:
+  - name: odak-kutusu-db
+    databaseName: odak_kutusu
+    user: odak_user
+    plan: free
