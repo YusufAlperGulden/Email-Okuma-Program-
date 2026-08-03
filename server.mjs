@@ -21,6 +21,7 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 // main process. In particular, it must never inherit a shared Gemini key or a
 // web-client secret from a developer's .env file.
 if (process.env.ODAK_DESKTOP !== 'true') loadEnv(path.join(ROOT, '.env'));
+const IS_DESKTOP_RUNTIME = process.env.ODAK_DESKTOP === 'true';
 const RENDER_ORIGIN = process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : '';
 const CONFIGURED_APP_ORIGIN = String(process.env.APP_ORIGIN || '').replace(/\/+$/, '');
 const DEFAULT_APP_ORIGIN = CONFIGURED_APP_ORIGIN || RENDER_ORIGIN;
@@ -40,8 +41,9 @@ const CONFIG = Object.freeze({
   appOrigin: DEFAULT_APP_ORIGIN,
   databaseUrl: String(process.env.DATABASE_URL || '').trim(),
   databaseSsl: String(process.env.DATABASE_SSL || '').trim().toLowerCase() === 'true',
-  localMode: process.env.ODAK_DESKTOP === 'true',
-  localDatabaseDir: String(process.env.LOCAL_DATABASE_DIR || '').trim(),
+  localMode: IS_DESKTOP_RUNTIME,
+  localDatabaseDir: IS_DESKTOP_RUNTIME ? String(process.env.LOCAL_DATABASE_DIR || '').trim() : '',
+  localAccessToken: IS_DESKTOP_RUNTIME ? String(process.env.LOCAL_ACCESS_TOKEN || '').trim() : '',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   googleRedirectUri: EFFECTIVE_GOOGLE_REDIRECT_URI,
@@ -122,8 +124,14 @@ Bir tarih veya saat kesin değilse uydurma; ilgili alanı boş bırak.
 if (CONFIG.localMode && !CONFIG.localDatabaseDir) {
   throw new Error('LOCAL_DATABASE_DIR must be set when ODAK_DESKTOP=true.');
 }
+if (CONFIG.localMode && CONFIG.databaseUrl) {
+  throw new Error('DATABASE_URL must not be set when ODAK_DESKTOP=true.');
+}
 if (CONFIG.localMode && CONFIG.host !== '127.0.0.1' && CONFIG.host !== '::1') {
   throw new Error('The desktop server must listen on a loopback address.');
+}
+if (CONFIG.localMode && Buffer.byteLength(CONFIG.localAccessToken, 'utf8') < 32) {
+  throw new Error('LOCAL_ACCESS_TOKEN must contain at least 32 random bytes when ODAK_DESKTOP=true.');
 }
 if (CONFIG.production && !CONFIG.databaseUrl && !CONFIG.localDatabaseDir) {
   throw new Error('DATABASE_URL must be set when NODE_ENV=production.');
@@ -187,6 +195,16 @@ async function route(req, res) {
   const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `localhost:${CONFIG.port}`}`);
   const pathname = decodeURIComponent(requestUrl.pathname);
   const method = req.method || 'GET';
+  const localOAuthCallback = CONFIG.localMode && method === 'GET' && pathname === '/'
+    && requestUrl.searchParams.has('state')
+    && (requestUrl.searchParams.has('code') || requestUrl.searchParams.has('error'));
+  // A random loopback port is discoverable by other processes. Every normal
+  // desktop request must therefore carry the per-launch capability injected by
+  // Electron's session. The state-bound OAuth callback is the only exception:
+  // it arrives from the user's system browser and is one-time validated below.
+  if (CONFIG.localMode && !localOAuthCallback && !hasLocalDesktopCapability(req)) {
+    throw new HttpError(403, 'Masaüstü oturumu doğrulanamadı.', 'desktop_access_denied');
+  }
   const session = await getSession(req);
 
   if (method === 'GET' && pathname === '/api/health') return sendJson(res, 200, { ok: true, now: new Date().toISOString() });
@@ -216,6 +234,12 @@ async function route(req, res) {
   if (method === 'DELETE' && pathname === '/api/account') return deleteAccount(req, res, session);
   if (method === 'GET' && pathname === '/auth/google') return beginGoogleOAuth(requestUrl, res, session);
   if (method === 'GET' && pathname === '/auth/google/callback') return finishGoogleOAuth(requestUrl, res, session);
+  // Desktop OAuth clients use the documented loopback origin itself as the
+  // redirect URI. Keep this separate from the web callback so cloud hosting
+  // continues to use its HTTPS /auth/google/callback route.
+  if (localOAuthCallback) {
+    return finishGoogleOAuth(requestUrl, res, session);
+  }
   if (method === 'GET' && pathname === '/api/dashboard') return dashboard(res, session.userId);
   if (method === 'GET' && pathname === '/api/demo') return sendJson(res, 200, { emails: demoEmails(), stats: statsFor(demoEmails()), demo: true });
   if (method === 'POST' && pathname === '/api/sync') return sync(req, res, session.userId);
@@ -433,7 +457,10 @@ async function finishGoogleOAuth(url, res, session) {
     throw new HttpError(400, 'Google yetkilendirme isteği geçersiz veya süresi dolmuş.', 'invalid_oauth_state');
   }
   const failure = url.searchParams.get('error');
-  if (failure) return redirect(res, `/?connection=cancelled&reason=${encodeURIComponent(failure)}`);
+  if (failure) {
+    if (CONFIG.localMode) return sendText(res, 200, 'Google yetkilendirmesi iptal edildi. Bu sekmeyi kapatıp OdakPosta uygulamasına dönebilirsiniz.');
+    return redirect(res, `/?connection=cancelled&reason=${encodeURIComponent(failure)}`);
+  }
   const code = url.searchParams.get('code');
   if (!code) throw new HttpError(400, 'Google yetkilendirme kodu gelmedi.', 'missing_oauth_code');
   const tokenRequest = new URLSearchParams({
@@ -473,6 +500,9 @@ async function finishGoogleOAuth(url, res, session) {
   void runGmailSync(session.userId, { limit: 100, force: false }).catch((error) => {
     console.error('Initial Gmail sync failed:', error.message);
   });
+  if (CONFIG.localMode) {
+    return sendText(res, 200, 'Gmail hesabı bağlandı. İlk özetler hazırlanıyor; bu sekmeyi kapatıp OdakPosta uygulamasına dönebilirsiniz.');
+  }
   return redirect(res, '/?connection=success&sync=started');
 }
 
@@ -1525,6 +1555,16 @@ function assertSameOrigin(req) {
   const proto = req.headers['x-forwarded-proto'] || (CONFIG.production ? 'https' : 'http');
   const expected = CONFIG.appOrigin || `${proto}://${req.headers.host}`;
   if (origin !== expected) throw new HttpError(403, 'Geçersiz istek kaynağı.', 'invalid_origin');
+}
+
+function hasLocalDesktopCapability(req) {
+  const supplied = typeof req.headers['x-odak-desktop-token'] === 'string'
+    ? req.headers['x-odak-desktop-token']
+    : '';
+  if (!supplied || !CONFIG.localAccessToken) return false;
+  const suppliedBytes = Buffer.from(supplied, 'utf8');
+  const expectedBytes = Buffer.from(CONFIG.localAccessToken, 'utf8');
+  return suppliedBytes.length === expectedBytes.length && timingSafeEqual(suppliedBytes, expectedBytes);
 }
 
 function validateAppOrigin(value) {

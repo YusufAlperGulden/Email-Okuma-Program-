@@ -69,6 +69,43 @@ npm start
 
 Harici ve TLS kullanan bir Postgres için `DATABASE_SSL=true` kullanın. Render Blueprint'in private bağlantısı için `DATABASE_SSL=false` kalmalıdır; bağlantı Render'ın private network'ünde yapılır.
 
+## Windows masaüstü uygulaması (.exe) — local-first
+
+Electron sürümü web/Render sürümünün yerine geçmez; ayrı bir Windows uygulamasıdır. Her Windows kullanıcısının Gmail bağlantısı, şifreli özetleri ve yerel veritabanı kendi bilgisayarında tutulur. Uygulama yalnızca `127.0.0.1` üzerinde geçici bir yerel sunucu açar; internetten dinlemez ve aynı anda yalnızca tek uygulama örneği çalışır.
+
+Masaüstü sürümünde `.env`, `DATABASE_URL`, web OAuth istemci sırrı ve olası ortak `GEMINI_API_KEY` **bilerek yok sayılır**. `.exe` içine ortak Gemini anahtarı konmaz. Kullanıcı isterse kendi Gemini API anahtarını Ayarlar ekranına girer; anahtar Windows DPAPI ile korunan Electron güvenli deposunda saklanır. Anahtar girilmezse uygulama yapay zekâ çağrısı yerine yerel kurallarla önceliklendirme yapar.
+
+### Geliştirirken çalıştırma
+
+```text
+npm install
+npm run desktop
+```
+
+İlk açılışta sağ üstteki ayar simgesinden şunları girin:
+
+1. Google Cloud Console’da **Desktop app** türünde oluşturulmuş kendi OAuth istemci kimliğiniz. Gmail API etkin olmalıdır.
+2. İsteğe bağlı olarak kendi billed Gemini API anahtarınız ve kullanacağınız model.
+3. İsterseniz otomatik eşitleme aralığı (`0` ile kapatılır).
+
+Gmail yetkilendirmesi Electron penceresinde değil, sistem tarayıcısında açılır. Uygulama her açılışta yalnızca loopback (`http://127.0.0.1:<rastgele-port>`) callback adresini kullanır ve PKCE doğrulaması yapar. Desktop OAuth istemcileri gizli istemci sırrı taşımaz; bu nedenle `GOOGLE_CLIENT_SECRET` pakete veya masaüstü ayarına eklenmez.
+
+Yerel Postgres uyumlu veri dizini Electron kullanıcı verisi altında tutulur:
+
+```text
+%APPDATA%\OdakPosta\pglite
+```
+
+Bu klasör bir PGlite/PostgreSQL veri dizinidir, tek bir dosya değildir. Uygulama kaldırıldığında bu kullanıcı verisi otomatik silinmez. Gmail bağlantısını uygulama içinden kaldırmak ilgili token ve özetleri siler; tüm yerel veriyi silmek gerektiğinde uygulama kapalıyken `%APPDATA%\OdakPosta` klasörünü silin. Tokenlar ve kaydedilmiş özetler ayrıca uygulamanın AES-256-GCM katman şifrelemesiyle korunur; ancak disk düzeyinde tam şifreleme yerine geçmez.
+
+### Windows yükleyici üretme
+
+```text
+npm run dist:win
+```
+
+Başarılı derlemeden sonra NSIS yükleyicisi `dist/OdakPosta-Setup-0.1.0.exe` altında oluşur. İlk dağıtımda kod imzası eklenmediyse Windows SmartScreen uyarısı görülebilir; herkese dağıtmadan önce kod imzalama ve gerçek bir paketlenmiş `.exe` testi yapın.
+
 ## Gmail ve Gemini için yayın öncesi zorunluluklar
 
 `gmail.readonly` Google tarafından **restricted** scope olarak sınıflandırılır. Test modunda test kullanıcılarıyla çalışabilirsiniz; herkese açık sürüm için OAuth verification, gizlilik politikası, veri silme akışı ve sunucuda restricted veri saklandığı/iletildiği için gerekli güvenlik değerlendirmesi planlanmalıdır. Google'ın [scope listesi](https://developers.google.com/workspace/gmail/api/auth/scopes), [User Data Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy) ve [restricted-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification) belgeleri takip edilmelidir.

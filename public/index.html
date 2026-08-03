@@ -22,6 +22,7 @@
           <span class="durum-rozet" id="baglantiDurumu" title="Bağlantı durumu">
             <i></i><span>Hazırlanıyor</span>
           </span>
+          <button class="ikon-dugme" id="masaustuAyarDugmesi" type="button" aria-label="Masaüstü ayarlarını aç" title="Masaüstü ayarları" hidden>⚙</button>
           <button class="ikon-dugme" id="temaDugmesi" type="button" aria-label="Koyu temayı aç" title="Temayı değiştir">◐</button>
           <button class="profil-dugmesi" id="oturumDugmesi" type="button" aria-label="Oturum seçenekleri" title="Oturum seçenekleri">OP</button>
         </div>
@@ -177,6 +178,32 @@
         <p class="form-hatasi" id="girisHatasi" aria-live="polite"></p>
         <button class="birincil-dugme tam-genislik" type="submit" id="girisGonder">Giriş yap</button>
         <button class="metin-dugme" type="button" id="kimlikModuDegistir">Hesabın yok mu? Hesap oluştur</button>
+      </form>
+    </dialog>
+
+    <dialog class="giris-penceresi" id="masaustuAyarPenceresi" aria-labelledby="masaustuAyarBasligi">
+      <form method="dialog" id="masaustuAyarFormu">
+        <button class="pencere-kapat" type="button" id="masaustuAyarKapat" aria-label="Masaüstü ayarlarını kapat">×</button>
+        <div class="giris-ikon" aria-hidden="true">⚙</div>
+        <p class="goz-bant">YEREL MASAÜSTÜ AYARLARI</p>
+        <h2 id="masaustuAyarBasligi">Kendi anahtarlarını bağla</h2>
+        <p>Bu ayarlar yalnızca bu Windows kullanıcısı için güvenli yerel depoda saklanır. Uygulamanın içinde ortak bir Gemini anahtarı bulunmaz.</p>
+        <label for="masaustuGoogleIstemciGirdisi">Google Desktop OAuth istemci kimliği</label>
+        <input id="masaustuGoogleIstemciGirdisi" type="text" autocomplete="off" spellcheck="false" placeholder="…apps.googleusercontent.com" />
+        <p class="ayar-yardim">Google Cloud Console’da <strong>Desktop app</strong> türünde oluşturduğun istemcinin kimliğini gir.</p>
+        <label for="masaustuGeminiAnahtarGirdisi">Kendi Gemini API anahtarın <small>(isteğe bağlı)</small></label>
+        <input id="masaustuGeminiAnahtarGirdisi" type="password" autocomplete="off" spellcheck="false" placeholder="Anahtarı değiştirmek için yaz" />
+        <p class="ayar-yardim" id="masaustuGeminiDurumu">Anahtar boş bırakılırsa yerel önceliklendirme kullanılır.</p>
+        <label class="ayar-onay" for="masaustuGeminiSil">
+          <input id="masaustuGeminiSil" type="checkbox" />
+          <span>Mevcut Gemini anahtarını kaldır</span>
+        </label>
+        <label for="masaustuGeminiModelGirdisi">Gemini modeli</label>
+        <input id="masaustuGeminiModelGirdisi" type="text" autocomplete="off" spellcheck="false" value="gemini-2.5-flash-lite" />
+        <label for="masaustuEsitlemeGirdisi">Otomatik eşitleme (dakika; 0 = kapalı)</label>
+        <input id="masaustuEsitlemeGirdisi" type="number" min="0" max="1440" step="1" value="15" />
+        <p class="form-hatasi" id="masaustuAyarHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik" type="submit" id="masaustuAyarKaydet">Kaydet ve yeniden başlat</button>
       </form>
     </dialog>
 

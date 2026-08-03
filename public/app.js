@@ -43,19 +43,24 @@
   const state = {
     emails: [], stats: {}, connection: {}, activeFilter: "all", query: "", isDemo: false,
     currentSnoozeId: null, authChecked: false, loginRequired: false, user: null,
-    authMode: "login", dashboardRefreshTimer: null
+    authMode: "login", dashboardRefreshTimer: null, desktopOAuthTimer: null,
+    desktopOAuthPending: false, desktopSettings: null, desktopSettingsRequired: false, localMode: false
   };
 
   const $ = (selector, scope = document) => scope.querySelector(selector);
   const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
+  const desktopBridge = window.odakDesktop || null;
   const elements = {
     connection: $("#baglantiDurumu"), demoNotice: $("#demoUyarisi"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
     accountEmail: $("#hesapEpostaGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
-    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay")
+    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
+    desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet")
   };
+
+  function isDesktop() { return Boolean(desktopBridge && state.localMode); }
 
   function normaliseEmail(email, index) {
     const labels = { urgent: "action", action_required: "action", important: "action", reminder: "followup", forgotten: "followup", information: "info", low: "info" };
@@ -111,8 +116,17 @@
       const auth = await request("/api/auth/status");
       state.authChecked = true;
       state.user = auth?.user || null;
+      state.localMode = Boolean(auth?.localMode);
+      if (isDesktop()) {
+        state.desktopSettings = await desktopBridge.getSettings();
+      }
+      elements.desktopSettingsButton.hidden = !isDesktop();
       if (!auth?.databaseConfigured) {
         state.loginRequired = true;
+        if (state.localMode) {
+          showLocalStartupError();
+          return false;
+        }
         showLogin("login", "Sunucu henüz kullanıcı veritabanına bağlanmadı. Yönetici DATABASE_URL ayarını tamamlamalı.");
         return false;
       }
@@ -123,6 +137,12 @@
     } catch (error) {
       state.authChecked = true;
       state.loginRequired = true;
+      if (desktopBridge) {
+        state.localMode = true;
+        elements.desktopSettingsButton.hidden = false;
+        showLocalStartupError();
+        return false;
+      }
       showLogin("login", "Giriş durumu alınamadı. Lütfen bağlantını tekrar kontrol et.");
       return false;
     }
@@ -252,13 +272,19 @@
   function renderConnection() {
     const configuredConnection = state.connection?.gmailConnected ?? state.connection?.connected;
     const connected = Boolean(configuredConnection) && !state.isDemo;
+    const desktop = isDesktop();
+    const needsGoogleSettings = state.connection?.gmailConfigured === false;
     elements.connection.classList.toggle("hata", !connected);
     $("span", elements.connection).textContent = connected ? "Gmail bağlı" : "Gmail bekliyor";
     const noConnection = !connected;
     elements.setup.hidden = !noConnection;
     elements.connectedGmail.hidden = !connected;
-    elements.setupLink.disabled = state.connection?.gmailConfigured === false;
-    elements.setupLink.textContent = state.connection?.gmailConfigured === false ? "Google ayarı gerekli" : "Gmail’i bağla";
+    elements.setupLink.disabled = needsGoogleSettings && !desktop;
+    elements.setupLink.textContent = state.desktopOAuthPending
+      ? "Bağlantıyı iptal et"
+      : needsGoogleSettings
+        ? (desktop ? "Google ayarını aç" : "Google ayarı gerekli")
+        : "Gmail’i bağla";
     const owner = state.connection?.gmailAddress || state.connection?.email || state.connection?.account;
     if (connected) {
       elements.connectedGmailDescription.textContent = owner
@@ -266,7 +292,9 @@
         : "Bu hesabın e-postaları yalnızca kendi panelinde özetlenir.";
     }
     elements.welcome.textContent = !connected
-      ? `${state.user?.email || "Hesabın"} hazır. Kendi Gmail hesabını bağlayarak kişisel özetlerini gör.`
+      ? (state.localMode
+        ? "Yerel OdakPosta hazır. Kendi Gmail hesabını bağlayarak özetlerini bu bilgisayarda tut."
+        : `${state.user?.email || "Hesabın"} hazır. Kendi Gmail hesabını bağlayarak kişisel özetlerini gör.`)
       : owner ? `${owner} için öncelikler yapay zekâ ile sıralandı.` : "Gelen kutundaki önemli konular yapay zekâ ile sıralandı.";
     const warning = state.connection?.lastAnalysisWarning;
     elements.updated.title = warning || "";
@@ -344,6 +372,10 @@
 
   function notify(message, type = "") { const note = document.createElement("div"); note.className = `bildirim ${type}`; note.textContent = message; elements.notifications.append(note); window.setTimeout(() => note.remove(), 4200); }
   function showLogin(mode = state.authMode, message = "") {
+    if (state.localMode) {
+      notify(message || "Masaüstü sürümünde ayrı bir uygulama hesabıyla giriş yapılmaz.", "uyari");
+      return;
+    }
     state.authMode = mode;
     const registering = mode === "register";
     elements.loginTitle.textContent = registering ? "OdakPosta hesabı oluştur" : "OdakPosta'ya giriş yap";
@@ -356,6 +388,19 @@
     elements.loginError.textContent = message;
     if (!elements.login.open) elements.login.showModal();
     window.setTimeout(() => elements.accountEmail.focus(), 30);
+  }
+
+  function showLocalStartupError() {
+    elements.connection.classList.add("hata");
+    $("span", elements.connection).textContent = "Yerel veritabanı hatası";
+    elements.setup.hidden = true;
+    elements.connectedGmail.hidden = true;
+    elements.sync.disabled = true;
+    elements.account.hidden = true;
+    elements.deleteAccountButton.hidden = true;
+    elements.welcome.textContent = "Yerel veriler başlatılamadığı için OdakPosta şu anda kullanılamıyor.";
+    elements.list.replaceChildren();
+    elements.listStatus.innerHTML = "<div class=\"bos-durum\"><strong>Yerel veritabanı başlatılamadı.</strong><span>Masaüstü uygulamasını yeniden başlatın. Sorun sürerse ayarlarınızı gözden geçirin.</span></div>";
   }
 
   async function submitAuth() {
@@ -407,10 +452,100 @@
     const initials = email ? email.split("@")[0].split(/[._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() : "OP";
     elements.account.textContent = initials || "OP";
     elements.account.title = email ? `${email} — çıkış seçenekleri` : "Giriş yap";
-    elements.deleteAccountButton.hidden = !email;
+    elements.account.hidden = state.localMode;
+    elements.deleteAccountButton.hidden = !email || state.localMode;
+  }
+
+  async function showDesktopSettings(required = false) {
+    if (!isDesktop()) return;
+    try {
+      state.desktopSettingsRequired = Boolean(required);
+      state.desktopSettings = await desktopBridge.getSettings();
+      const settings = state.desktopSettings;
+      elements.desktopGoogleClientId.value = settings.googleClientId || "";
+      elements.desktopGeminiKey.value = "";
+      elements.desktopClearGeminiKey.checked = false;
+      elements.desktopGeminiModel.value = settings.geminiModel || "gemini-2.5-flash-lite";
+      elements.desktopAutoSync.value = String(settings.autoSyncMinutes ?? 15);
+      elements.desktopGeminiStatus.textContent = settings.geminiConfigured
+        ? "Bir Gemini anahtarı güvenli yerel depoda kayıtlı. Değiştirmek için yeni anahtarı yaz veya kaldırma kutusunu işaretle."
+        : "Gemini anahtarı isteğe bağlıdır; boş bırakılırsa yerel önceliklendirme kullanılır.";
+      elements.desktopSettingsError.textContent = required && !settings.googleConfigured
+        ? "Gmail bağlamak için önce Google Desktop OAuth istemci kimliğini kaydedin."
+        : "";
+      if (!elements.desktopSettingsDialog.open) elements.desktopSettingsDialog.showModal();
+      window.setTimeout(() => elements.desktopGoogleClientId.focus(), 30);
+    } catch (error) {
+      notify(error.message || "Masaüstü ayarları açılamadı.", "uyari");
+    }
+  }
+
+  async function saveDesktopSettings() {
+    if (!isDesktop()) return;
+    if (state.desktopSettingsRequired && !elements.desktopGoogleClientId.value.trim()) {
+      elements.desktopSettingsError.textContent = "Gmail bağlamak için Google Desktop OAuth istemci kimliği gerekli.";
+      elements.desktopGoogleClientId.focus();
+      return;
+    }
+    elements.desktopSettingsSave.disabled = true;
+    elements.desktopSettingsError.textContent = "";
+    try {
+      state.desktopSettings = await desktopBridge.saveSettings({
+        googleClientId: elements.desktopGoogleClientId.value,
+        geminiApiKey: elements.desktopGeminiKey.value,
+        clearGeminiKey: elements.desktopClearGeminiKey.checked,
+        geminiModel: elements.desktopGeminiModel.value,
+        autoSyncMinutes: elements.desktopAutoSync.value
+      });
+      elements.desktopSettingsDialog.close();
+      notify("Ayarlar güvenli yerel depoya kaydedildi. Uygulama yeniden başlatılıyor…", "basari");
+      await desktopBridge.restart();
+    } catch (error) {
+      elements.desktopSettingsError.textContent = error.message || "Ayarlar kaydedilemedi.";
+      elements.desktopSettingsSave.disabled = false;
+    }
+  }
+
+  function stopDesktopOAuthPolling() {
+    if (state.desktopOAuthTimer) window.clearTimeout(state.desktopOAuthTimer);
+    state.desktopOAuthTimer = null;
+    state.desktopOAuthPending = false;
+  }
+
+  function startDesktopOAuthPolling() {
+    stopDesktopOAuthPolling();
+    state.desktopOAuthPending = true;
+    const deadline = Date.now() + 10 * 60 * 1000;
+    const poll = async () => {
+      await loadDashboard();
+      if (state.connection?.gmailConnected) {
+        stopDesktopOAuthPolling();
+        render();
+        notify("Gmail hesabı bağlandı; ilk özetler hazırlanıyor.", "basari");
+        return;
+      }
+      if (Date.now() >= deadline) {
+        stopDesktopOAuthPolling();
+        render();
+        notify("Google yetkilendirmesi tamamlanmadı. İstersen tekrar deneyebilirsin.", "uyari");
+        return;
+      }
+      state.desktopOAuthTimer = window.setTimeout(() => { void poll(); }, 2500);
+    };
+    state.desktopOAuthTimer = window.setTimeout(() => { void poll(); }, 2500);
   }
 
   async function connectGmail() {
+    if (state.desktopOAuthPending) {
+      stopDesktopOAuthPolling();
+      render();
+      notify("Google yetkilendirmesi için bekleme iptal edildi. İstersen tekrar deneyebilirsin.", "uyari");
+      return;
+    }
+    if (isDesktop() && !state.desktopSettings?.googleConfigured) {
+      await showDesktopSettings(true);
+      return;
+    }
     if (elements.setupLink.disabled) { notify("Gmail bağlantısı için sunucuda Google OAuth bilgileri yapılandırılmalı.", "uyari"); return; }
     const hint = elements.gmailAddress.value.trim();
     if (hint && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hint)) { notify("Geçerli bir Gmail adresi yaz veya alanı boş bırak.", "uyari"); return; }
@@ -418,6 +553,13 @@
     elements.setupLink.disabled = true;
     try {
       await request("/api/gmail/consent", { method: "POST", body: JSON.stringify({ accepted: true }) });
+      if (isDesktop()) {
+        await desktopBridge.beginGoogleOAuth(hint);
+        startDesktopOAuthPolling();
+        render();
+        notify("Google yetkilendirmesi sistem tarayıcısında açıldı. Onayı tamamladıktan sonra buraya dön.", "basari");
+        return;
+      }
       window.location.assign(`/auth/google${hint ? `?email=${encodeURIComponent(hint)}` : ""}`);
     } catch (error) {
       notify(error.message || "Gmail bağlantısı başlatılamadı.", "uyari");
@@ -430,6 +572,7 @@
     elements.disconnectGmail.disabled = true;
     try {
       await request("/api/disconnect", { method: "POST", body: "{}" });
+      stopDesktopOAuthPolling();
       state.emails = []; state.stats = {}; state.connection = { gmailConnected: false, gmailConfigured: state.connection?.gmailConfigured };
       elements.gmailConsent.checked = false;
       render();
@@ -455,6 +598,7 @@
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
+    elements.desktopSettingsButton.addEventListener("click", () => { void showDesktopSettings(); }); elements.desktopSettingsForm.addEventListener("submit", event => { event.preventDefault(); void saveDesktopSettings(); }); elements.desktopSettingsClose.addEventListener("click", () => elements.desktopSettingsDialog.close());
     elements.theme.addEventListener("click", () => { const dark = !document.body.classList.contains("koyu"); document.body.classList.toggle("koyu", dark); localStorage.setItem("odak-posta-tema", dark ? "dark" : "light"); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç"); });
     elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked && confirm("Oturumu kapatmak istiyor musun?")) logout(); });
     elements.setupLink.addEventListener("click", connectGmail);
