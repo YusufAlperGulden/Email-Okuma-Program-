@@ -69,13 +69,8 @@ const MAX_BODY_BYTES = 24_000;
 const PASSWORD_MIN_LENGTH = 12;
 const AUTH_WINDOW_MS = 1000 * 60 * 15;
 const AUTH_MAX_ATTEMPTS = 10;
-const LOCAL_USER_ID = 'odakposta-desktop-user-v1';
-const LOCAL_USER_EMAIL = 'yerel@odakposta.local';
-const LOCAL_USER_USERNAME = 'yerel-kullanici';
-const LOCAL_SESSION_ID = 'odakposta-desktop-session-v1';
 let database = null;
 let databaseKind = null;
-let localSession = null;
 const activeSyncs = new Map();
 const activeSyncStartedAt = new Map();
 const authAttempts = new Map();
@@ -188,7 +183,6 @@ export async function closeLocalServer() {
   const activeDatabase = database;
   database = null;
   databaseKind = null;
-  localSession = null;
   await closeDatabase(activeDatabase);
 }
 
@@ -259,7 +253,6 @@ async function route(req, res) {
 }
 
 async function register(req, res) {
-  if (CONFIG.localMode) throw new HttpError(409, 'Masaüstü sürümünde ayrı uygulama hesabı oluşturulmaz.', 'desktop_local_mode');
   requireDatabase();
   assertSameOrigin(req);
   assertAuthAttemptAllowed(req, 'register');
@@ -303,7 +296,6 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
-  if (CONFIG.localMode) throw new HttpError(409, 'Masaüstü sürümünde ayrı uygulama hesabıyla giriş yapılmaz.', 'desktop_local_mode');
   requireDatabase();
   assertSameOrigin(req);
   assertAuthAttemptAllowed(req, 'login');
@@ -332,7 +324,6 @@ async function login(req, res) {
 }
 
 async function updateAccount(req, res, session) {
-  if (CONFIG.localMode) throw new HttpError(409, 'Yerel verileri güncellemek için masaüstü ayarlarını kullanın.', 'desktop_local_mode');
   assertAuthAttemptAllowed(req, 'account_update');
   const body = await readJson(req);
   const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
@@ -422,14 +413,12 @@ async function updateAccount(req, res, session) {
 
 async function logout(req, res, session) {
   assertSameOrigin(req);
-  if (CONFIG.localMode) return sendJson(res, 200, { ok: true });
   if (session) await sql('DELETE FROM app_sessions WHERE id_hash = $1', [session.idHash]);
   res.setHeader('Set-Cookie', clearCookie());
   return sendJson(res, 200, { ok: true });
 }
 
 async function deleteAccount(req, res, session) {
-  if (CONFIG.localMode) throw new HttpError(409, 'Yerel verileri silmek için masaüstü ayarlarını kullanın.', 'desktop_local_mode');
   const body = await readJson(req);
   const password = typeof body.password === 'string' ? body.password : '';
   const result = await sql('SELECT password_hash FROM app_users WHERE id = $1', [session.userId]);
@@ -473,7 +462,6 @@ function respondWithSession(res, session, payload) {
 
 async function getSession(req) {
   if (!database) return null;
-  if (CONFIG.localMode) return getLocalSession();
   const cookies = parseCookies(req.headers.cookie || '');
   const id = cookies[COOKIE_NAME];
   if (!id) return null;
@@ -492,26 +480,6 @@ async function getSession(req) {
   }
   return { id, idHash, userId: row.user_id, username: row.username, expiresAt: new Date(row.expires_at).valueOf() };
 }
-
-async function getLocalSession() {
-  if (localSession) return localSession;
-  const result = await sql(
-    `INSERT INTO app_users (id, email, username, username_key, password_hash, last_login_at)
-     VALUES ($1, $2, $3, $4, $5, NOW())
-     ON CONFLICT (id) DO UPDATE SET last_login_at = NOW()
-     RETURNING COALESCE(username, email) AS username`,
-    [LOCAL_USER_ID, LOCAL_USER_EMAIL, LOCAL_USER_USERNAME, LOCAL_USER_USERNAME, await hashPassword(randomBytes(32).toString('base64url'))]
-  );
-  localSession = {
-    id: LOCAL_SESSION_ID,
-    idHash: hashSecret(LOCAL_SESSION_ID),
-    userId: LOCAL_USER_ID,
-    username: result.rows[0]?.username || LOCAL_USER_USERNAME,
-    expiresAt: Number.MAX_SAFE_INTEGER
-  };
-  return localSession;
-}
-
 function sessionCookie(session) {
   const secure = CONFIG.production ? '; Secure' : '';
   return `${COOKIE_NAME}=${session.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secure}`;

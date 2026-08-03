@@ -246,10 +246,8 @@
         : "Bu hesabın e-postaları yalnızca kendi panelinde özetlenir.";
     }
     elements.welcome.textContent = !connected
-      ? (state.localMode
-        ? "Yerel OdakPosta hazır. Kendi Gmail hesabını bağlayarak özetlerini bu bilgisayarda tut."
-        : `${state.user?.username || "Hesabın"} hazır. Kendi Gmail hesabını bağlayarak kişisel özetlerini gör.`)
-      : owner ? `${owner} için öncelikler yapay zekâ ile sıralandı.` : "Gelen kutundaki önemli konular yapay zekâ ile sıralandı.";
+        ? `${state.user?.username || "Hesabın"} hazır. Kendi Gmail hesabını bağlayarak kişisel özetlerini gör.`
+        : owner ? `${owner} için öncelikler yapay zekâ ile sıralandı.` : "Gelen kutundaki önemli konular yapay zekâ ile sıralandı.";
     const warning = state.connection?.lastAnalysisWarning;
     elements.updated.title = warning || "";
     elements.updated.textContent = state.isDemo
@@ -326,14 +324,14 @@
 
   function notify(message, type = "") { const note = document.createElement("div"); note.className = `bildirim ${type}`; note.textContent = message; elements.notifications.append(note); window.setTimeout(() => note.remove(), 4200); }
   function showLogin(mode = state.authMode, message = "") {
-    if (state.localMode) {
-      notify(message || "Masaüstü sürümünde ayrı bir uygulama hesabıyla giriş yapılmaz.", "uyari");
-      return;
-    }
     state.authMode = mode;
     const registering = mode === "register";
     elements.loginTitle.textContent = registering ? "OdakPosta hesabı oluştur" : "OdakPosta'ya giriş yap";
-    elements.loginDescription.textContent = registering ? "Hesabın için benzersiz bir kullanıcı adı ve güçlü bir parola seç. Gmail hesabını sonraki adımda bağlayacaksın." : "Kullanıcı adın ve parolanla giriş yap. Eski hesabın varsa mevcut e-posta adresinle de giriş yapabilirsin.";
+    elements.loginDescription.textContent = registering
+      ? "Hesabın için benzersiz bir kullanıcı adı ve güçlü bir parola seç. Gmail hesabını sonraki adımda bağlayacaksın."
+      : state.localMode
+        ? "Bu bilgisayardaki kullanıcı adın ve parolanla giriş yap."
+        : "Kullanıcı adın ve parolanla giriş yap. Eski hesabın varsa mevcut e-posta adresinle de giriş yapabilirsin.";
     elements.loginButton.textContent = registering ? "Hesap oluştur" : "Giriş yap";
     elements.authToggle.textContent = registering ? "Zaten hesabın var mı? Giriş yap" : "Hesabın yok mu? Hesap oluştur";
     elements.passwordConfirmationField.hidden = !registering;
@@ -409,14 +407,15 @@
       ? username.split(/[._@-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
       : "OP";
     elements.account.textContent = initials || "OP";
-    elements.account.title = username ? `${username} — hesap ayarları` : "Giriş yap";
-    elements.account.hidden = state.localMode;
-    elements.deleteAccountButton.hidden = !username || state.localMode;
-    if (elements.settingsButton) elements.settingsButton.hidden = !username || state.localMode;
+    elements.account.title = username ? `${username} – hesap ayarları` : "Giriş yap";
+    elements.account.hidden = false;
+    elements.deleteAccountButton.hidden = !username;
+    if (elements.settingsButton) elements.settingsButton.hidden = !username;
+    if (elements.settingsDelete) elements.settingsDelete.hidden = false;
   }
 
   function showAccountSettings() {
-    if (!state.user || state.localMode) return;
+    if (!state.user) return;
     elements.settingsUsername.value = state.user.username || "";
     elements.settingsNewPassword.value = "";
     elements.settingsNewPasswordConfirmation.value = "";
