@@ -14,7 +14,7 @@
   const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
   const desktopBridge = window.odakDesktop || null;
   const elements = {
-    connection: $("#baglantiDurumu"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
+    connection: $("#baglantiDurumu"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), gmailConsentError: $("#gmailOnayHatasi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
@@ -553,7 +553,11 @@
     if (elements.setupLink.disabled) { notify("Gmail bağlantısı için sunucuda Google OAuth bilgileri yapılandırılmalı.", "uyari"); return; }
     const hint = elements.gmailAddress.value.trim();
     if (hint && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hint)) { notify("Geçerli bir Gmail adresi yaz veya alanı boş bırak.", "uyari"); return; }
-    if (!elements.gmailConsent.checked) { notify("Devam etmek için Gmail verisi işleme onayını vermelisin.", "uyari"); return; }
+    if (!elements.gmailConsent.checked) {
+      elements.gmailConsentError.hidden = false;
+      return;
+    }
+    elements.gmailConsentError.hidden = true;
     elements.setupLink.disabled = true;
     try {
       await request("/api/gmail/consent", { method: "POST", body: JSON.stringify({ accepted: true }) });
