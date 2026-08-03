@@ -211,7 +211,7 @@ async function route(req, res) {
   if (method === 'GET' && pathname === '/api/auth/status') {
     return sendJson(res, 200, {
       authenticated: Boolean(session),
-      user: session ? { email: session.email } : null,
+      user: session ? { username: session.username } : null,
       registrationEnabled: Boolean(database) && !CONFIG.localMode,
       databaseConfigured: Boolean(database),
       localMode: CONFIG.localMode,
@@ -222,7 +222,8 @@ async function route(req, res) {
     });
   }
   if (method === 'POST' && pathname === '/api/auth/register') return register(req, res);
-  if (method === 'POST' && pathname === '/api/login') return login(req, res);
+  if (method === 'POST' && pathname === '/api/auth/login') return login(req, res);
+  if (method === 'POST' && pathname === '/api/auth/update') return updateCredentials(req, res, session);
   if (method === 'POST' && pathname === '/api/logout') return logout(req, res, session);
 
   if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
@@ -265,9 +266,9 @@ async function register(req, res) {
   // used to create an unlimited number of accounts in one rate window.
   recordAuthFailure(req, 'register');
   const body = await readJson(req);
-  const email = normalizeAccountEmail(body.email);
+  const username = (body.username || '').trim();
   const password = typeof body.password === 'string' ? body.password : '';
-  if (!email) throw new HttpError(400, 'Geçerli bir e-posta adresi girin.', 'invalid_email');
+  if (!username) throw new HttpError(400, 'Geçerli bir kullanıcı adı girin.', 'invalid_username');
   if (password.length < PASSWORD_MIN_LENGTH) {
     throw new HttpError(400, `Parola en az ${PASSWORD_MIN_LENGTH} karakter olmalıdır.`, 'password_too_short');
   }
@@ -276,13 +277,13 @@ async function register(req, res) {
   }
   const userId = randomUUID();
   try {
-    await sql('INSERT INTO app_users (id, email, password_hash) VALUES ($1, $2, $3)', [userId, email, await hashPassword(password)]);
+    await sql('INSERT INTO app_users (id, username, password_hash) VALUES ($1, $2, $3)', [userId, username, await hashPassword(password)]);
   } catch (error) {
-    if (error?.code === '23505') throw new HttpError(409, 'Bu e-posta adresiyle zaten bir hesap var.', 'email_already_registered');
+    if (error?.code === '23505') throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
     throw error;
   }
-  const session = await createSession({ userId, email });
-  return respondWithSession(res, session, { authenticated: true, user: { email } });
+  const session = await createSession({ userId, username });
+  return respondWithSession(res, session, { authenticated: true, user: { username } });
 }
 
 async function login(req, res) {
@@ -291,18 +292,59 @@ async function login(req, res) {
   assertSameOrigin(req);
   assertAuthAttemptAllowed(req, 'login');
   const body = await readJson(req);
-  const email = normalizeAccountEmail(body.email);
+  const username = (body.username || '').trim();
   const password = typeof body.password === 'string' ? body.password : '';
-  const result = email ? await sql('SELECT id, email, password_hash FROM app_users WHERE email = $1', [email]) : { rows: [] };
+  const result = username ? await sql('SELECT id, username, password_hash FROM app_users WHERE username = $1', [username]) : { rows: [] };
   const user = result.rows[0];
   if (!user || !(await passwordMatches(user.password_hash, password))) {
     recordAuthFailure(req, 'login');
-    throw new HttpError(401, 'E-posta adresi veya parola doğru değil.', 'invalid_credentials');
+    throw new HttpError(401, 'Kullanıcı adı veya parola doğru değil.', 'invalid_credentials');
   }
   await sql('UPDATE app_users SET last_login_at = NOW() WHERE id = $1', [user.id]);
   clearAuthAttempts(req, 'login');
-  const session = await createSession({ userId: user.id, email: user.email });
-  return respondWithSession(res, session, { authenticated: true, user: { email: user.email } });
+  const session = await createSession({ userId: user.id, username: user.username });
+  return respondWithSession(res, session, { authenticated: true, user: { username: user.username } });
+}
+
+async function updateCredentials(req, res, session) {
+  if (CONFIG.localMode) throw new HttpError(409, 'Yerel verileri güncellemek için masaüstü ayarlarını kullanın.', 'desktop_local_mode');
+  const body = await readJson(req);
+  const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
+  const newUsername = typeof body.newUsername === 'string' ? body.newUsername.trim() : null;
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : null;
+  
+  const result = await sql('SELECT password_hash FROM app_users WHERE id = $1', [session.userId]);
+  const user = result.rows[0];
+  if (!user || !(await passwordMatches(user.password_hash, currentPassword))) {
+    throw new HttpError(403, 'Mevcut parola doğru değil.', 'invalid_password');
+  }
+
+  const updates = [];
+  const params = [];
+  let paramIndex = 1;
+
+  if (newUsername) {
+    updates.push(`username = $${paramIndex++}`);
+    params.push(newUsername);
+  }
+  if (newPassword) {
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      throw new HttpError(400, `Yeni parola en az ${PASSWORD_MIN_LENGTH} karakter olmalıdır.`, 'password_too_short');
+    }
+    updates.push(`password_hash = $${paramIndex++}`);
+    params.push(await hashPassword(newPassword));
+  }
+
+  if (updates.length > 0) {
+    params.push(session.userId);
+    try {
+      await sql(`UPDATE app_users SET ${updates.join(', ')} WHERE id = $${paramIndex}`, params);
+    } catch (error) {
+      if (error?.code === '23505') throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+      throw error;
+    }
+  }
+  return sendJson(res, 200, { ok: true, username: newUsername });
 }
 
 async function logout(req, res, session) {
@@ -338,13 +380,13 @@ async function deleteAccount(req, res, session) {
   return sendJson(res, 200, { ok: true });
 }
 
-async function createSession({ userId, email }) {
+async function createSession({ userId, username }) {
   const id = randomBytes(32).toString('base64url');
   const idHash = hashSecret(id);
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await sql('DELETE FROM app_sessions WHERE expires_at <= NOW()');
   await sql('INSERT INTO app_sessions (id_hash, user_id, expires_at) VALUES ($1, $2, $3)', [idHash, userId, expiresAt]);
-  return { id, idHash, userId, email, expiresAt: expiresAt.valueOf() };
+  return { id, idHash, userId, username, expiresAt: expiresAt.valueOf() };
 }
 
 function respondWithSession(res, session, payload) {
@@ -360,7 +402,7 @@ async function getSession(req) {
   if (!id) return null;
   const idHash = hashSecret(id);
   const result = await sql(
-    `SELECT s.user_id, s.expires_at, u.email
+    `SELECT s.user_id, s.expires_at, u.username
        FROM app_sessions s
        JOIN app_users u ON u.id = s.user_id
       WHERE s.id_hash = $1 AND s.expires_at > NOW()`,
@@ -371,23 +413,23 @@ async function getSession(req) {
     await sql('DELETE FROM app_sessions WHERE id_hash = $1', [idHash]);
     return null;
   }
-  return { id, idHash, userId: row.user_id, email: row.email, expiresAt: new Date(row.expires_at).valueOf() };
+  return { id, idHash, userId: row.user_id, username: row.username, expiresAt: new Date(row.expires_at).valueOf() };
 }
 
 async function getLocalSession() {
   if (localSession) return localSession;
   const result = await sql(
-    `INSERT INTO app_users (id, email, password_hash, last_login_at)
+    `INSERT INTO app_users (id, username, password_hash, last_login_at)
      VALUES ($1, $2, $3, NOW())
      ON CONFLICT (id) DO UPDATE SET last_login_at = NOW()
-     RETURNING email`,
+     RETURNING username`,
     [LOCAL_USER_ID, LOCAL_USER_EMAIL, await hashPassword(randomBytes(32).toString('base64url'))]
   );
   localSession = {
     id: LOCAL_SESSION_ID,
     idHash: hashSecret(LOCAL_SESSION_ID),
     userId: LOCAL_USER_ID,
-    email: result.rows[0]?.email || LOCAL_USER_EMAIL,
+    username: result.rows[0]?.username || LOCAL_USER_EMAIL,
     expiresAt: Number.MAX_SAFE_INTEGER
   };
   return localSession;
@@ -1206,7 +1248,7 @@ async function initializeDatabase() {
     const schema = [
       `CREATE TABLE IF NOT EXISTS app_users (
          id TEXT PRIMARY KEY,
-         email TEXT NOT NULL UNIQUE,
+         username TEXT NOT NULL UNIQUE,
          password_hash TEXT NOT NULL,
          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
          last_login_at TIMESTAMPTZ,
@@ -1261,6 +1303,7 @@ async function initializeDatabase() {
        )`
     ];
     for (const statement of schema) await database.query(statement);
+    try { await database.query('ALTER TABLE app_users RENAME COLUMN email TO username'); } catch (e) { /* ignore */ }
     await database.query('DELETE FROM app_sessions WHERE expires_at <= NOW()');
     await database.query('DELETE FROM oauth_states WHERE expires_at <= NOW()');
     await migrateLegacyEncryptedRecords();

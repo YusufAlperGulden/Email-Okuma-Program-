@@ -124,6 +124,7 @@
         </section>
       </main>
       <footer class="hesap-altligi">
+        <button class="metin-dugme hesap-ayarlari-dugmesi" id="hesapAyarlariDugmesi" type="button" hidden>Hesap ayarları</button>
         <button class="metin-dugme hesap-sil-dugmesi" id="hesapSilDugmesi" type="button" hidden>Hesabımı ve verilerimi sil</button>
       </footer>
     </div>
@@ -161,9 +162,9 @@
         <div class="giris-ikon" aria-hidden="true">✦</div>
         <p class="goz-bant">GÜVENLİ ERİŞİM</p>
         <h2 id="girisBasligi">OdakPosta'ya giriş yap</h2>
-        <p id="girisAciklamasi">Kendi e-posta adresin ve parolanla giriş yap.</p>
-        <label for="hesapEpostaGirdisi">Hesap e-posta adresi</label>
-        <input id="hesapEpostaGirdisi" type="email" autocomplete="email" autocapitalize="none" inputmode="email" required />
+        <p id="girisAciklamasi">Kullanıcı adın ve parolanla giriş yap.</p>
+        <label for="kullaniciAdiGirdisi">Kullanıcı Adı</label>
+        <input id="kullaniciAdiGirdisi" type="text" autocomplete="username" autocapitalize="none" required />
         <label for="parolaGirdisi">Parola</label>
         <input id="parolaGirdisi" type="password" autocomplete="current-password" required />
         <div id="parolaTekrarAlani" hidden>
@@ -211,6 +212,22 @@
         <input id="erteleTarihi" type="datetime-local" required />
         <p class="form-hatasi" id="erteleHatasi" aria-live="polite"></p>
         <button class="birincil-dugme tam-genislik" type="submit">Hatırlatıcı oluştur</button>
+      </form>
+    </dialog>
+
+    <dialog class="giris-penceresi" id="hesapAyarlariPenceresi" aria-labelledby="hesapAyarlariBasligi">
+      <form method="dialog" id="hesapAyarlariFormu">
+        <button class="pencere-kapat" type="button" id="hesapAyarlariKapat" aria-label="Hesap ayarları penceresini kapat">✕</button>
+        <p class="goz-bant">HESAP AYARLARI</p>
+        <h2 id="hesapAyarlariBasligi">Bilgilerini Güncelle</h2>
+        <label for="ayarKullaniciAdiGirdisi">Yeni Kullanıcı Adı (İsteğe bağlı)</label>
+        <input id="ayarKullaniciAdiGirdisi" type="text" autocomplete="username" autocapitalize="none" />
+        <label for="ayarYeniParolaGirdisi">Yeni Parola (İsteğe bağlı)</label>
+        <input id="ayarYeniParolaGirdisi" type="password" autocomplete="new-password" />
+        <label for="ayarMevcutParolaGirdisi">Mevcut Parolan (Doğrulama için zorunlu)</label>
+        <input id="ayarMevcutParolaGirdisi" type="password" autocomplete="current-password" required />
+        <p class="form-hatasi" id="hesapAyarlariHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik" type="submit" id="hesapAyarlariOnay">Değişiklikleri kaydet</button>
       </form>
     </dialog>
 

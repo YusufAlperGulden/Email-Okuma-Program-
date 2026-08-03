@@ -18,8 +18,8 @@
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
-    accountEmail: $("#hesapEpostaGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
-    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
+    accountUsername: $("#kullaniciAdiGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
+    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
     desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet")
   };
 
@@ -248,7 +248,7 @@
     elements.welcome.textContent = !connected
       ? (state.localMode
         ? "Yerel OdakPosta hazır. Kendi Gmail hesabını bağlayarak özetlerini bu bilgisayarda tut."
-        : `${state.user?.email || "Hesabın"} hazır. Kendi Gmail hesabını bağlayarak kişisel özetlerini gör.`)
+        : `${state.user?.username || "Hesabın"} hazır. Kendi Gmail hesabını bağlayarak kişisel özetlerini gör.`)
       : owner ? `${owner} için öncelikler yapay zekâ ile sıralandı.` : "Gelen kutundaki önemli konular yapay zekâ ile sıralandı.";
     const warning = state.connection?.lastAnalysisWarning;
     elements.updated.title = warning || "";
@@ -341,7 +341,7 @@
     elements.password.autocomplete = registering ? "new-password" : "current-password";
     elements.loginError.textContent = message;
     if (!elements.login.open) elements.login.showModal();
-    window.setTimeout(() => elements.accountEmail.focus(), 30);
+    window.setTimeout(() => elements.accountUsername.focus(), 30);
   }
 
   function showLocalStartupError() {
@@ -358,13 +358,13 @@
   }
 
   async function submitAuth() {
-    const email = elements.accountEmail.value.trim(); const password = elements.password.value; const passwordConfirmation = elements.passwordConfirmation.value;
-    if (!email || !password || (state.authMode === "register" && !passwordConfirmation)) return;
+    const username = elements.accountUsername.value.trim(); const password = elements.password.value; const passwordConfirmation = elements.passwordConfirmation.value;
+    if (!username || !password || (state.authMode === "register" && !passwordConfirmation)) return;
     elements.loginButton.disabled = true; elements.loginError.textContent = "";
     try {
       const registering = state.authMode === "register";
-      const result = await request(registering ? "/api/auth/register" : "/api/login", { method: "POST", body: JSON.stringify({ email, password, passwordConfirmation }) });
-      state.user = result?.user || { email };
+      const result = await request(registering ? "/api/auth/register" : "/api/auth/login", { method: "POST", body: JSON.stringify({ username, password, passwordConfirmation }) });
+      state.user = result?.user || { username };
       elements.password.value = ""; elements.passwordConfirmation.value = ""; elements.login.close(); state.loginRequired = false; updateAccountButton(); await loadDashboard(); notify(registering ? "Hesabın oluşturuldu. Şimdi Gmail hesabını bağlayabilirsin." : "Giriş başarılı.", "basari");
     }
     catch (error) { elements.loginError.textContent = error.message || "Giriş yapılamadı. Bağlantını kontrol et."; }
@@ -402,12 +402,51 @@
   }
 
   function updateAccountButton() {
-    const email = state.user?.email || "";
-    const initials = email ? email.split("@")[0].split(/[._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() : "OP";
+    const username = state.user?.username || "";
+    const initials = username ? username.substring(0, 2).toUpperCase() : "OP";
     elements.account.textContent = initials || "OP";
-    elements.account.title = email ? `${email} — çıkış seçenekleri` : "Giriş yap";
+    elements.account.title = username ? `${username} — hesap seçenekleri` : "Giriş yap";
     elements.account.hidden = state.localMode;
-    elements.deleteAccountButton.hidden = !email || state.localMode;
+    elements.deleteAccountButton.hidden = !username || state.localMode;
+    if (elements.settingsButton) elements.settingsButton.hidden = !username || state.localMode;
+  }
+
+  function showAccountSettings() {
+    if (!state.user) return;
+    elements.settingsUsername.value = state.user.username || "";
+    elements.settingsNewPassword.value = "";
+    elements.settingsCurrentPassword.value = "";
+    elements.settingsError.textContent = "";
+    if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
+    window.setTimeout(() => elements.settingsUsername.focus(), 30);
+  }
+
+  async function saveAccountSettings() {
+    const newUsername = elements.settingsUsername.value.trim();
+    const newPassword = elements.settingsNewPassword.value;
+    const currentPassword = elements.settingsCurrentPassword.value;
+
+    if (!currentPassword) return;
+
+    elements.settingsConfirm.disabled = true;
+    elements.settingsError.textContent = "";
+
+    try {
+      const result = await request("/api/auth/update", {
+        method: "POST",
+        body: JSON.stringify({ newUsername, newPassword, currentPassword })
+      });
+      if (result && result.username) {
+        state.user.username = result.username;
+        updateAccountButton();
+      }
+      elements.settingsDialog.close();
+      notify("Hesap bilgilerin başarıyla güncellendi.", "basari");
+    } catch (error) {
+      elements.settingsError.textContent = error.message || "Hesap bilgileri güncellenemedi.";
+    } finally {
+      elements.settingsConfirm.disabled = false;
+    }
   }
 
   async function showDesktopSettings(required = false) {
@@ -552,6 +591,9 @@
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
+    if (elements.settingsForm) { elements.settingsForm.addEventListener("submit", event => { event.preventDefault(); void saveAccountSettings(); }); }
+    if (elements.settingsButton) { elements.settingsButton.addEventListener("click", showAccountSettings); }
+    if ($("#hesapAyarlariKapat")) { $("#hesapAyarlariKapat").addEventListener("click", () => elements.settingsDialog.close()); }
     elements.desktopSettingsButton.addEventListener("click", () => { void showDesktopSettings(); }); elements.desktopSettingsForm.addEventListener("submit", event => { event.preventDefault(); void saveDesktopSettings(); }); elements.desktopSettingsClose.addEventListener("click", () => elements.desktopSettingsDialog.close());
     elements.theme.addEventListener("click", () => { const dark = !document.body.classList.contains("koyu"); document.body.classList.toggle("koyu", dark); localStorage.setItem("odak-posta-tema", dark ? "dark" : "light"); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç"); });
     elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked && confirm("Oturumu kapatmak istiyor musun?")) logout(); });
