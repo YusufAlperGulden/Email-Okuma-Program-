@@ -6,42 +6,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    body { padding: 40px 20px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
-    h1, h2 { color: var(--metin-temel); margin-top: 2rem; }
-    p, li { color: var(--metin-ikincil); }
-    .header-link { margin-bottom: 2rem; display: inline-block; }
+    body {
+      background-color: var(--arka-plan);
+      color: var(--metin-ikincil);
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .legal-container { 
+      padding: 40px 40px; 
+      max-width: 800px; 
+      margin: 0 auto; 
+      line-height: 1.8;
+      background: var(--kart-arka-plan);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      margin-top: 40px;
+      margin-bottom: 40px;
+    }
+    @media (max-width: 600px) {
+      .legal-container { padding: 20px 20px; }
+    }
+    h1, h2, h3 { color: var(--metin-temel); margin-top: 2.5rem; margin-bottom: 1rem; }
+    h1 { font-size: 2.5rem; border-bottom: 1px solid var(--kenarlik); padding-bottom: 1rem; margin-top: 1rem; }
+    h2 { font-size: 1.5rem; }
+    p, li { margin-bottom: 1rem; }
+    ul { margin-left: 1.5rem; margin-bottom: 1.5rem; }
+    .header-link { margin-bottom: 2rem; display: inline-block; color: var(--vurgu-rengi); text-decoration: none; font-weight: 600; }
+    .header-link:hover { text-decoration: underline; }
+    .last-updated { font-style: italic; color: var(--metin-ikincil); margin-bottom: 2rem; }
+    strong { color: var(--metin-temel); }
   </style>
 </head>
 <body>
-  <a href="/" class="header-link">&larr; Ana Sayfaya Dön</a>
-  
-  <h1>Gizlilik Politikası (Privacy Policy)</h1>
-  <p>Son Güncelleme: 3 Ağustos 2026</p>
+  <div class="legal-container">
+    <a href="/" class="header-link">&larr; Ana Sayfaya Dön</a>
+    
+    <h1>Gizlilik Politikası (Privacy Policy)</h1>
+    <div class="last-updated">Son Güncelleme: 3 Ağustos 2026</div>
 
-  <h2>1. Giriş</h2>
-  <p>OdakPosta ("uygulama", "biz", "bizim"), gizliliğinizi ciddiye almaktadır. Bu Gizlilik Politikası, e-posta yönetim uygulamamızı kullanırken kişisel verilerinizi nasıl topladığımızı, kullandığımızı ve koruduğumuzu açıklamaktadır.</p>
+    <p>OdakPosta ("uygulama", "biz", "bizim"), kullanıcılarımızın ("siz", "kullanıcı") gizliliğini korumayı ve kişisel verilerini güvenle işlemeyi en yüksek önceliği olarak kabul eder. Bu Gizlilik Politikası, web ve masaüstü tabanlı e-posta yönetim ve akıllı özetleme hizmetimizi kullanırken verilerinizin nasıl toplandığını, kullanıldığını, saklandığını ve korunduğunu ayrıntılı olarak açıklamaktadır.</p>
 
-  <h2>2. Topladığımız Veriler</h2>
-  <p>Google hesabınızla (OAuth) bağlantı kurduğunuzda, uygulamanın çalışabilmesi için şu verilere "Sadece Okunur" (Read-Only) erişim talep ederiz:</p>
-  <ul>
-    <li>Kullanıcı profiliniz ve bağlı e-posta adresiniz.</li>
-    <li>Gelen kutunuzdaki e-postaların meta verileri (Gönderen, Konu, Tarih) ve gövde içerikleri (Özetleme işlemi için).</li>
-  </ul>
+    <h2>1. Topladığımız Veriler</h2>
+    <p>Hizmetimizi tam verimlilikle sunabilmek adına, aşağıdaki sınırlı veri setlerini toplamaktayız:</p>
+    <ul>
+      <li><strong>Hesap Bilgileri:</strong> Uygulamamıza kayıt olurken sağladığınız kullanıcı adı ve şifrelenmiş parolanız. Parolanız geri döndürülemez bir şifreleme algoritması (scrypt) ile güvenli bir şekilde saklanır.</li>
+      <li><strong>Google OAuth Verileri:</strong> Google hesabınızla bağlantı kurduğunuzda, uygulamanın çalışabilmesi için "Sadece Okunur" (Read Only) erişim talep edilir. Bu kapsamda e-posta adresiniz, profil temel bilgileriniz ve erişim jetonları (access tokens) güvenli bir şekilde alınır.</li>
+      <li><strong>E-Posta İçerikleri (Geçici):</strong> Akıllı özetleme işlevi için gelen kutunuzdaki e-postaların meta verileri (Gönderen, Konu, Tarih) ve gövde içerikleri anlık olarak işlenir. <strong>E-posta içerikleriniz veritabanımızda kalıcı olarak saklanmaz.</strong></li>
+    </ul>
 
-  <h2>3. Verilerinizin Kullanımı</h2>
-  <p>OdakPosta'nın temel işlevi olan "Yapay Zeka Destekli Akıllı Özetleme" hizmetini sağlamak için Google üzerinden alınan e-posta gövdeleri geçici olarak işlenir.</p>
-  <p><strong>Google API Hizmetleri Kullanıcı Verileri Politikası (Limited Use Policy) Kapsamı:</strong></p>
-  <ul>
-    <li>OdakPosta'nın Google API'lerinden aldığı bilgileri kullanımı ve başka herhangi bir uygulamaya aktarımı, Sınırlı Kullanım gereksinimleri de dahil olmak üzere <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use-requirements" target="_blank" rel="noopener">Google API Hizmetleri Kullanıcı Verileri Politikası'na</a> uygun olarak gerçekleştirilir.</li>
-    <li><strong>Verileriniz Kesinlikle Yapay Zeka Eğitiminde KULLANILMAZ:</strong> E-postalarınız yalnızca özetleme için Gemini veya OpenAI gibi üçüncü parti büyük dil modellerine gönderilebilir, ancak bu verilerin API sağlayıcıları tarafından kendi yapay zeka modellerini eğitmek, iyileştirmek veya geliştirmek amacıyla kullanılmasına izin verilmez. Bu amaçla ilgili hizmet sağlayıcıların "Sıfır Veri Saklama / Eğitimsiz" (Zero Data Retention) politikaları aktif edilmiştir.</li>
-    <li>OdakPosta, kullanıcı verilerini üçüncü şahıslara satmaz veya reklam amacıyla paylaşmaz.</li>
-  </ul>
+    <h2>2. Verilerinizin Kullanım Amacı</h2>
+    <p>Topladığımız veriler, yalnızca size söz verdiğimiz hizmetleri sunmak amacıyla kullanılır:</p>
+    <ul>
+      <li>Size özel, önceliklendirilmiş e-posta özetleri sunmak.</li>
+      <li>Hesap güvenliğinizi sağlamak ve yetkisiz erişimleri engellemek.</li>
+      <li>Gelecekteki uygulama güncellemelerinde kullanıcı deneyimini teknik veriler ışığında iyileştirmek.</li>
+    </ul>
 
-  <h2>4. Veri Saklama ve Silme</h2>
-  <p>Veritabanımızda (PostgreSQL), kullanıcı oturumunuz ve oluşturulan özet verileriniz şifrelenerek saklanır. Orijinal e-posta gövdeleri (body) veritabanımıza <strong>yazılmaz ve saklanmaz</strong>.</p>
-  <p>İstediğiniz zaman hesap ayarları bölümünden "Hesabımı ve verilerimi sil" butonuna basarak tüm verilerinizi sistemden kalıcı olarak silebilirsiniz.</p>
+    <h2>3. Google API Hizmetleri Kullanıcı Verileri Politikası (Limited Use Policy) Kapsamı</h2>
+    <p>Google API'lerinden edindiğimiz verilerin kullanımı katı kurallara tabidir:</p>
+    <ul>
+      <li><strong>Sınırlı Kullanım (Limited Use):</strong> OdakPosta'nın Google API'lerinden aldığı bilgileri kullanımı ve başka herhangi bir uygulamaya aktarımı, Sınırlı Kullanım gereksinimleri de dahil olmak üzere <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" style="color:var(--vurgu-rengi);">Google API Hizmetleri Kullanıcı Verileri Politikası</a>'na kesinlikle uygundur.</li>
+      <li><strong>Yapay Zeka Eğitimi Kısıtlaması:</strong> Verileriniz <strong>Kesinlikle Yapay Zeka Eğitiminde KULLANILMAZ</strong>. E-postalarınız yalnızca özetleme işlemi için Gemini AI veya OpenAI gibi üçüncü parti dil modellerine API aracılığıyla gönderilir. API sağlayıcıları, gönderilen bu verileri kendi modellerini eğitmek, iyileştirmek veya geliştirmek amacıyla kullanamaz. Bu süreçte "Sıfır Veri Saklama" (Zero Data Retention) politikaları aktif edilmiştir.</li>
+      <li><strong>Veri Paylaşımı:</strong> Kullanıcı verileriniz hiçbir suretle reklam, pazarlama, pazar araştırması gibi amaçlarla üçüncü şahıslara satılmaz veya paylaşılmaz.</li>
+    </ul>
 
-  <h2>5. İletişim</h2>
-  <p>Gizlilik politikamız ile ilgili sorularınız için bizimle iletişime geçebilirsiniz.</p>
+    <h2>4. Veri Güvenliği ve Saklama</h2>
+    <p>Sunucularımızda saklanan kritik bilgileriniz (erişim token'ları, sistem ayarları), endüstri standardı AES-256-GCM şifrelemesi ile korunmaktadır. Masaüstü sürümümüzü kullandığınızda ise verileriniz tamamen sizin bilgisayarınızda yerel olarak (local-first) saklanır ve izole edilir.</p>
+    <p>Sistemlerimizden hesabınızı silmeyi talep ettiğinizde veya sildiğinizde, şifrelenmiş token'larınız ve kullanıcı bilgileriniz veritabanımızdan kalıcı olarak silinir.</p>
+
+    <h2>5. Çocukların Gizliliği</h2>
+    <p>Hizmetlerimiz 13 yaşın altındaki çocuklara yönelik değildir. 13 yaşın altındaki birinden bilerek kişisel veri toplamıyoruz. Eğer bir çocuğun bize kişisel veri sağladığını fark edersek, bu verileri sistemlerimizden derhal sileriz.</p>
+
+    <h2>6. İletişim ve Haklarınız</h2>
+    <p>Kişisel verileriniz üzerinde erişim, düzeltme, silme ve kısıtlama haklarına sahipsiniz. Bu politikayla veya verilerinizle ilgili her türlü soru, talep veya endişeniz için uygulama yöneticinize veya resmi iletişim kanallarımıza ulaşabilirsiniz.</p>
+  </div>
 </body>
 </html>

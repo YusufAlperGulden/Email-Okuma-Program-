@@ -6,38 +6,72 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    body { padding: 40px 20px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
-    h1, h2 { color: var(--metin-temel); margin-top: 2rem; }
-    p, li { color: var(--metin-ikincil); }
-    .header-link { margin-bottom: 2rem; display: inline-block; }
+    body {
+      background-color: var(--arka-plan);
+      color: var(--metin-ikincil);
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .legal-container { 
+      padding: 40px 40px; 
+      max-width: 800px; 
+      margin: 0 auto; 
+      line-height: 1.8;
+      background: var(--kart-arka-plan);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      margin-top: 40px;
+      margin-bottom: 40px;
+    }
+    @media (max-width: 600px) {
+      .legal-container { padding: 20px 20px; }
+    }
+    h1, h2, h3 { color: var(--metin-temel); margin-top: 2.5rem; margin-bottom: 1rem; }
+    h1 { font-size: 2.5rem; border-bottom: 1px solid var(--kenarlik); padding-bottom: 1rem; margin-top: 1rem; }
+    h2 { font-size: 1.5rem; }
+    p, li { margin-bottom: 1rem; }
+    ul { margin-left: 1.5rem; margin-bottom: 1.5rem; }
+    .header-link { margin-bottom: 2rem; display: inline-block; color: var(--vurgu-rengi); text-decoration: none; font-weight: 600; }
+    .header-link:hover { text-decoration: underline; }
+    .last-updated { font-style: italic; color: var(--metin-ikincil); margin-bottom: 2rem; }
+    strong { color: var(--metin-temel); }
   </style>
 </head>
 <body>
-  <a href="/" class="header-link">&larr; Ana Sayfaya Dön</a>
-  
-  <h1>Kullanım Koşulları (Terms of Service)</h1>
-  <p>Son Güncelleme: 3 Ağustos 2026</p>
+  <div class="legal-container">
+    <a href="/" class="header-link">&larr; Ana Sayfaya Dön</a>
+    
+    <h1>Kullanım Koşulları (Terms of Service)</h1>
+    <div class="last-updated">Son Güncelleme: 3 Ağustos 2026</div>
 
-  <h2>1. Hizmetin Kabulü</h2>
-  <p>OdakPosta'yı kullanarak, bu Kullanım Koşullarını ve Gizlilik Politikamızı okuduğunuzu, anladığınızı ve yasal olarak bağlayıcı olduğunu kabul etmiş olursunuz.</p>
+    <p>Lütfen OdakPosta'yı ("uygulama", "hizmet") kullanmadan önce bu Kullanım Koşulları sözleşmesini ("Sözleşme") dikkatlice okuyunuz. Bu Sözleşme, uygulamanın kullanımıyla ilgili yasal haklarınızı ve yükümlülüklerinizi belirler.</p>
 
-  <h2>2. Hizmetin Tanımı</h2>
-  <p>OdakPosta, Google hesabınıza bağlanarak e-postalarınızı yapay zeka desteğiyle analiz eden, sınıflandıran ve özetleyen kişisel bir üretkenlik aracıdır. Hizmetin kullanımı tamamen kullanıcının kendi sorumluluğundadır.</p>
+    <h2>1. Hizmetin Kabulü</h2>
+    <p>OdakPosta'ya erişerek veya hizmetimizi kullanarak, bu Kullanım Koşullarını ve <a href="/privacy.html" target="_blank" style="color:var(--vurgu-rengi);">Gizlilik Politikamızı</a> okuduğunuzu, anladığınızı ve bunlara yasal olarak bağlı olduğunuzu kabul etmiş olursunuz. Bu koşulların herhangi bir kısmını kabul etmiyorsanız, uygulamayı kullanma izniniz bulunmamaktadır.</p>
 
-  <h2>3. Kullanıcı Yükümlülükleri</h2>
-  <ul>
-    <li>Hesap güvenliğiniz (kullanıcı adınız ve şifreniz) sizin sorumluluğunuzdadır.</li>
-    <li>Uygulamayı yasadışı faaliyetler, spam gönderimi veya başkalarının gizliliğini ihlal edecek şekilde kullanmamayı kabul edersiniz.</li>
-  </ul>
+    <h2>2. Hizmetin Tanımı</h2>
+    <p>OdakPosta, Google (Gmail) hesabınıza entegre olarak çalışan, e-postalarınızı yapay zeka (AI) destekli algoritmalarla analiz eden, sınıflandıran ve özetleyen kişisel bir üretkenlik ve yönetim aracıdır. Hizmetimiz, size gelen kutunuz üzerinde daha verimli bir kontrol sağlamak amacıyla tasarlanmıştır.</p>
 
-  <h2>4. Sorumluluğun Sınırlandırılması</h2>
-  <p>Yapay zeka özetlemeleri her zaman %100 doğru olmayabilir. OdakPosta, yapay zeka tarafından sağlanan bilgilerin doğruluğu, eksiksizliği veya güvenilirliği konusunda garanti vermez. Önemli kararlar almadan önce daima orijinal e-posta içeriklerini okumalısınız.</p>
-  <p>Hizmetimiz "olduğu gibi" sunulmaktadır. Herhangi bir hizmet kesintisi veya veri kaybından dolayı şirketimiz veya geliştiricilerimiz sorumlu tutulamaz.</p>
+    <h2>3. Kullanıcı Yükümlülükleri ve Hesap Güvenliği</h2>
+    <ul>
+      <li><strong>Hesap Güvenliği:</strong> Hizmetimize kayıt olurken oluşturduğunuz kullanıcı adı ve parolanın gizliliğini korumak tamamen sizin sorumluluğunuzdadır. Hesabınız altında gerçekleşen her türlü faaliyetten siz sorumlu sayılırsınız.</li>
+      <li><strong>Kabul Edilebilir Kullanım:</strong> Uygulamayı, yerel veya uluslararası yasalara aykırı, yasa dışı faaliyetler, spam gönderimi, tersine mühendislik veya başkalarının gizliliğini ve fikri mülkiyet haklarını ihlal edecek şekilde kullanamazsınız.</li>
+      <li><strong>Bilgi Doğruluğu:</strong> Kayıt sırasında ve uygulamayı kullanırken sağladığınız bilgilerin doğru ve güncel olduğunu taahhüt edersiniz.</li>
+    </ul>
 
-  <h2>5. Hizmetin Değiştirilmesi ve Feshi</h2>
-  <p>OdakPosta, hizmetin özelliklerini önceden haber vermeksizin değiştirme, askıya alma veya tamamen durdurma hakkını saklı tutar.</p>
+    <h2>4. Sorumluluğun Sınırlandırılması ve Garanti Reddi</h2>
+    <p><strong>"Olduğu Gibi" Esası:</strong> OdakPosta hizmetleri tamamen "olduğu gibi" ve "mevcut olduğu şekliyle" sunulmaktadır. Hizmetin kesintisiz, hatasız veya tamamen güvenli olacağına dair herhangi bir zımni veya açık garanti verilmemektedir.</p>
+    <p><strong>Yapay Zeka (AI) Doğruluğu:</strong> OdakPosta, e-postalarınızı özetlemek için gelişmiş yapay zeka modellerini kullanır. Ancak, yapay zeka tarafından üretilen özetler veya sınıflandırmalar her zaman %100 doğru olmayabilir. OdakPosta, yapay zeka tarafından sağlanan bilgilerin doğruluğu, eksiksizliği veya güvenilirliği konusunda garanti vermez. Önemli kararlar almadan veya kritik iletişimlerde bulunmadan önce daima orijinal e-posta içeriklerini okumalısınız.</p>
+    <p><strong>Sorumluluk Sınırı:</strong> Geçerli yasaların izin verdiği ölçüde; OdakPosta, geliştiricileri veya bağlı kuruluşları, uygulamanın kullanımından veya kullanılamamasından doğan doğrudan, dolaylı, arızi, özel veya sonuç olarak ortaya çıkan zararlardan (veri kaybı, kar kaybı, iş kesintisi dahil ancak bunlarla sınırlı olmamak üzere) sorumlu tutulamaz.</p>
 
-  <h2>6. İletişim</h2>
-  <p>Bu kullanım koşulları ile ilgili her türlü sorunuz için bizimle iletişime geçebilirsiniz.</p>
+    <h2>5. Fikri Mülkiyet Hakları</h2>
+    <p>OdakPosta uygulamasının tüm tasarımı, kaynak kodları, metinleri, logoları, grafikleri ve arayüzü dahil olmak üzere tüm fikri mülkiyet hakları OdakPosta'ya veya lisans verenlerine aittir. Bu içerikler, önceden yazılı izin alınmaksızın kopyalanamaz, çoğaltılamaz, dağıtılamaz veya değiştirilemez.</p>
+
+    <h2>6. Hizmetin Değiştirilmesi ve Feshi</h2>
+    <p>OdakPosta, hizmetin özelliklerini, işlevlerini veya bu Kullanım Koşullarını önceden haber vermeksizin dilediği zaman değiştirme, askıya alma veya tamamen durdurma hakkını saklı tutar. Kullanım Koşullarında yapılan değişiklikler, bu sayfada yayınlandığı andan itibaren geçerlilik kazanır.</p>
+
+    <h2>7. Uygulanacak Hukuk ve Uyuşmazlıkların Çözümü</h2>
+    <p>Bu Kullanım Koşullarından veya hizmetin kullanımından doğabilecek her türlü uyuşmazlık, kanunlar ihtilafı kurallarına bakılmaksızın ilgili yerel yasalara tabi olacak ve yetkili mahkemelerde çözümlenecektir.</p>
+
+  </div>
 </body>
 </html>
