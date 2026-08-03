@@ -1,6 +1,6 @@
 /**
  * Odak Kutusu
- * Single-user, dependency-free server for a private Gmail + Gemini triage dashboard.
+ * Multi-user server for a privacy-conscious Gmail + Gemini triage dashboard.
  * No message is ever sent, deleted, archived, or marked read by this application.
  */
 import { createServer } from 'node:http';
@@ -47,6 +47,11 @@ const CONFIG = Object.freeze({
   autoSyncMinutes: toInteger(process.env.AUTO_SYNC_MINUTES, 15, 0, 1440),
   production: process.env.NODE_ENV === 'production'
 });
+
+if (CONFIG.production && !CONFIG.appOrigin) {
+  throw new Error('APP_ORIGIN (or Render external hostname) must be set when NODE_ENV=production.');
+}
+if (CONFIG.appOrigin) validateAppOrigin(CONFIG.appOrigin);
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const COOKIE_NAME = 'odak_session';
@@ -106,12 +111,12 @@ Bir tarih veya saat kesin değilse uydurma; ilgili alanı boş bırak.
 if (CONFIG.production && !CONFIG.databaseUrl) {
   throw new Error('DATABASE_URL must be set when NODE_ENV=production.');
 }
-if (CONFIG.production && !CONFIG.encryptionKey) {
-  throw new Error('APP_ENCRYPTION_KEY must be set when NODE_ENV=production.');
+if (CONFIG.production && !hasStrongEncryptionKey()) {
+  throw new Error('APP_ENCRYPTION_KEY must contain at least 32 random bytes when NODE_ENV=production.');
 }
 if (CONFIG.databaseUrl) await initializeDatabase();
 
-const server = createServer(async (req, res) => {
+export const server = createServer(async (req, res) => {
   try {
     await route(req, res);
   } catch (error) {
@@ -177,6 +182,7 @@ async function route(req, res) {
   }
 
   if (method === 'POST' && pathname === '/api/gmail/consent') return recordGmailConsent(req, res, session.userId);
+  if (method === 'DELETE' && pathname === '/api/account') return deleteAccount(req, res, session);
   if (method === 'GET' && pathname === '/auth/google') return beginGoogleOAuth(requestUrl, res, session);
   if (method === 'GET' && pathname === '/auth/google/callback') return finishGoogleOAuth(requestUrl, res, session);
   if (method === 'GET' && pathname === '/api/dashboard') return dashboard(res, session.userId);
@@ -199,6 +205,9 @@ async function register(req, res) {
   requireDatabase();
   assertSameOrigin(req);
   assertAuthAttemptAllowed(req, 'register');
+  // Successful sign-ups also count: otherwise a public endpoint could be
+  // used to create an unlimited number of accounts in one rate window.
+  recordAuthFailure(req, 'register');
   const body = await readJson(req);
   const email = normalizeAccountEmail(body.email);
   const password = typeof body.password === 'string' ? body.password : '';
@@ -216,7 +225,6 @@ async function register(req, res) {
     if (error?.code === '23505') throw new HttpError(409, 'Bu e-posta adresiyle zaten bir hesap var.', 'email_already_registered');
     throw error;
   }
-  clearAuthAttempts(req, 'register');
   const session = await createSession({ userId, email });
   return respondWithSession(res, session, { authenticated: true, user: { email } });
 }
@@ -243,6 +251,30 @@ async function login(req, res) {
 async function logout(req, res, session) {
   assertSameOrigin(req);
   if (session) await sql('DELETE FROM app_sessions WHERE id_hash = $1', [session.idHash]);
+  res.setHeader('Set-Cookie', clearCookie());
+  return sendJson(res, 200, { ok: true });
+}
+
+async function deleteAccount(req, res, session) {
+  const body = await readJson(req);
+  const password = typeof body.password === 'string' ? body.password : '';
+  const result = await sql('SELECT password_hash FROM app_users WHERE id = $1', [session.userId]);
+  if (!result.rows[0] || !(await passwordMatches(result.rows[0].password_hash, password))) {
+    throw new HttpError(401, 'Hesabı silmek için mevcut parolanızı doğru girmelisiniz.', 'invalid_credentials');
+  }
+
+  // Revocation is deliberately best-effort. A bad or rotated encryption key
+  // must never prevent a person from deleting their application data.
+  try {
+    const token = await readToken(session.userId);
+    if (token?.refreshToken) {
+      void fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token.refreshToken)}`, { method: 'POST' }).catch(() => {});
+    }
+  } catch (error) {
+    console.warn('Could not revoke Google token during account deletion:', error.message);
+  }
+
+  await sql('DELETE FROM app_users WHERE id = $1', [session.userId]);
   res.setHeader('Set-Cookie', clearCookie());
   return sendJson(res, 200, { ok: true });
 }
@@ -282,12 +314,6 @@ async function getSession(req) {
   return { id, idHash, userId: row.user_id, email: row.email, expiresAt: new Date(row.expires_at).valueOf() };
 }
 
-function constantTimeMatches(expectedValue, suppliedValue) {
-  const expected = Buffer.from(expectedValue);
-  const supplied = Buffer.from(suppliedValue);
-  return expected.length === supplied.length && timingSafeEqual(expected, supplied);
-}
-
 function sessionCookie(session) {
   const secure = CONFIG.production ? '; Secure' : '';
   return `${COOKIE_NAME}=${session.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secure}`;
@@ -304,6 +330,7 @@ async function beginGoogleOAuth(url, res, session) {
   if (!(await hasGmailProcessingConsent(session.userId))) {
     throw new HttpError(409, 'Gmail bağlantısından önce veri işleme onayı vermelisiniz.', 'gmail_consent_required');
   }
+  await sql('DELETE FROM oauth_states WHERE expires_at <= NOW()');
   const state = randomBytes(32).toString('base64url');
   const codeVerifier = randomBytes(48).toString('base64url');
   const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
@@ -420,7 +447,9 @@ async function sync(req, res, userId) {
   requireEncryption();
   const body = await readJson(req);
   const limit = toInteger(body.limit, 100, 1, 100);
-  const force = body.force === true;
+  // A public client must not be able to spend the shared Gemini budget by
+  // repeatedly requesting a full re-analysis of the same inbox.
+  const force = false;
   const result = await runGmailSync(userId, { limit, force });
   return sendJson(res, 200, result);
 }
@@ -513,20 +542,36 @@ async function syncGmail(userId, { limit, force }) {
     const alreadyUpdated = new Set(updated.map((email) => email.id));
     const upgrades = sortEmails(store.emails).filter((email) => (
       !alreadyUpdated.has(email.id) &&
-      Boolean(email.bodyText) &&
       needsGeminiUpgrade(email)
     ));
     for (const previous of upgrades) {
       if (analyzedCount >= limit) break;
-      const analysis = await analyzeEmail(previous);
-      updated.push({
-        ...previous,
-        ...analysis,
-        analyzedAt: new Date().toISOString(),
-        analysisSource: analysis.analysisSource,
-        geminiAttemptedAt: analysis.geminiAttemptedAt
-      });
-      analyzedCount += 1;
+      try {
+        // Message bodies are intentionally not retained in Postgres. Fetch a
+        // fresh copy from Gmail only when an older local fallback needs its
+        // first Gemini analysis.
+        const message = await gmailRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(previous.id)}?format=full`);
+        const normalized = normalizeGmailMessage(message);
+        if (!normalized) continue;
+        const analysis = await analyzeEmail(normalized);
+        updated.push({
+          ...previous,
+          ...normalized,
+          ...analysis,
+          status: previous.status || 'open',
+          snoozedUntil: previous.snoozedUntil || null,
+          analyzedAt: new Date().toISOString(),
+          analysisSource: analysis.analysisSource,
+          geminiAttemptedAt: analysis.geminiAttemptedAt,
+          originalUrl: gmailOriginalUrl(normalized.threadId, normalized.id)
+        });
+        analyzedCount += 1;
+      } catch (error) {
+        // An older message may have been deleted or be temporarily
+        // unavailable. Leave its current summary intact and continue with
+        // the rest of the bounded upgrade job.
+        console.warn('Could not upgrade an older Gmail message:', error.message);
+      }
     }
   }
 
@@ -829,24 +874,32 @@ async function googleProfile(accessToken) {
 
 async function readToken(userId) {
   requireEncryption();
-  const result = await sql('SELECT token_ciphertext FROM gmail_connections WHERE user_id = $1', [userId]);
-  const serialized = result.rows[0]?.token_ciphertext;
+  const result = await sql('SELECT token_ciphertext, google_subject FROM gmail_connections WHERE user_id = $1', [userId]);
+  const row = result.rows[0];
+  const serialized = row?.token_ciphertext;
   if (!serialized) return null;
   try {
-    return JSON.parse(decrypt(serialized));
+    const token = JSON.parse(decrypt(serialized, tokenAad(userId, row.google_subject)));
+    // v1 records predate AAD. Keep them readable for a gradual migration, but
+    // still reject a copied token whose embedded Google identity disagrees.
+    if (token.googleSubject && token.googleSubject !== row.google_subject) throw new Error('Token subject does not match its connection');
+    return { ...token, googleSubject: row.google_subject };
   } catch (error) {
     console.error('Unable to decrypt Gmail token:', error.message);
     throw new HttpError(500, 'Gmail bağlantı verisi okunamadı. Şifreleme anahtarını kontrol edin.', 'encrypted_token_unreadable');
   }
 }
 
-async function writeToken(userId, token) {
+async function writeToken(userId, token, { expectedGoogleSubject = token?.googleSubject } = {}) {
   requireEncryption();
+  if (!expectedGoogleSubject) throw new HttpError(409, 'Gmail bağlantısı değişti. Hesabı yeniden bağlayın.', 'gmail_connection_changed');
   const result = await sql(
-    'UPDATE gmail_connections SET token_ciphertext = $2, updated_at = NOW() WHERE user_id = $1',
-    [userId, encrypt(JSON.stringify(token))]
+    `UPDATE gmail_connections
+        SET token_ciphertext = $3, updated_at = NOW()
+      WHERE user_id = $1 AND google_subject = $2`,
+    [userId, expectedGoogleSubject, encrypt(JSON.stringify(token), tokenAad(userId, expectedGoogleSubject))]
   );
-  if (!result.rowCount) throw new HttpError(409, 'Gmail hesabı bağlı değil.', 'gmail_not_connected');
+  if (!result.rowCount) throw new HttpError(409, 'Gmail bağlantısı değişti. Hesabı yeniden bağlayın.', 'gmail_connection_changed');
 }
 
 async function writeGmailConnection(userId, token, profile) {
@@ -880,7 +933,7 @@ async function writeGmailConnection(userId, token, profile) {
          google_subject = EXCLUDED.google_subject,
          token_ciphertext = EXCLUDED.token_ciphertext,
          updated_at = NOW()`,
-      [userId, profile.email, profile.subject, encrypt(JSON.stringify(savedToken))]
+      [userId, profile.email, profile.subject, encrypt(JSON.stringify(savedToken), tokenAad(userId, profile.subject))]
     );
     await client.query('COMMIT');
   } catch (error) {
@@ -932,7 +985,8 @@ async function readStore(userId) {
   const emails = [];
   try {
     for (const row of emailResult.rows) {
-      const email = JSON.parse(decrypt(row.encrypted_payload));
+      const email = JSON.parse(decrypt(row.encrypted_payload, emailAad(userId, row.gmail_message_id)));
+      if (email.id && String(email.id) !== row.gmail_message_id) throw new Error('Email record id does not match its row');
       email.id = email.id || row.gmail_message_id;
       email.status = row.status || email.status || 'open';
       email.snoozedUntil = row.snoozed_until ? new Date(row.snoozed_until).toISOString() : null;
@@ -940,6 +994,9 @@ async function readStore(userId) {
       email.analyzedAt = row.analyzed_at ? new Date(row.analyzed_at).toISOString() : email.analyzedAt || null;
       email.analysisSource = row.analysis_source || email.analysisSource || null;
       email.geminiAttemptedAt = row.gemini_attempted_at ? new Date(row.gemini_attempted_at).toISOString() : email.geminiAttemptedAt || null;
+      // v1 records might contain raw message text. Do not carry it forward:
+      // the next write upgrades the record to a summary-only encrypted payload.
+      delete email.bodyText;
       emails.push(email);
     }
   } catch (error) {
@@ -972,6 +1029,7 @@ async function writeStore(userId, store, { expectedGoogleSubject = null } = {}) 
       }
     }
     for (const email of store.emails || []) {
+      const { bodyText: _bodyText, ...storedEmail } = email;
       const receivedAt = validDateString(email.receivedAt) ? new Date(email.receivedAt) : new Date();
       const snoozedUntil = validDateString(email.snoozedUntil) ? new Date(email.snoozedUntil) : null;
       const analyzedAt = validDateString(email.analyzedAt) ? new Date(email.analyzedAt) : null;
@@ -991,7 +1049,7 @@ async function writeStore(userId, store, { expectedGoogleSubject = null } = {}) 
            gemini_attempted_at = EXCLUDED.gemini_attempted_at,
            updated_at = NOW()`,
         [
-          userId, String(email.id), encrypt(JSON.stringify(email)), email.status || 'open', snoozedUntil,
+          userId, String(email.id), encrypt(JSON.stringify(storedEmail), emailAad(userId, String(email.id))), email.status || 'open', snoozedUntil,
           receivedAt, analyzedAt, email.analysisSource || null, geminiAttemptedAt
         ]
       );
@@ -1024,21 +1082,29 @@ async function writeStore(userId, store, { expectedGoogleSubject = null } = {}) 
   }
 }
 
-function encrypt(plainText) {
+function encrypt(plainText, aad = '') {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', cryptoKey(), iv);
+  if (aad) cipher.setAAD(Buffer.from(aad, 'utf8'));
   const ciphertext = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return `v1.${iv.toString('base64url')}.${tag.toString('base64url')}.${ciphertext.toString('base64url')}`;
+  return `v2.${iv.toString('base64url')}.${tag.toString('base64url')}.${ciphertext.toString('base64url')}`;
 }
 
-function decrypt(serialized) {
+function decrypt(serialized, aad = '') {
   const [version, ivText, tagText, ciphertextText] = String(serialized).trim().split('.');
-  if (version !== 'v1' || !ivText || !tagText || !ciphertextText) throw new Error('Invalid encrypted record');
+  if (!['v1', 'v2'].includes(version) || !ivText || !tagText || !ciphertextText) throw new Error('Invalid encrypted record');
   const decipher = createDecipheriv('aes-256-gcm', cryptoKey(), Buffer.from(ivText, 'base64url'));
+  if (version === 'v2') {
+    if (!aad) throw new Error('Missing encrypted record context');
+    decipher.setAAD(Buffer.from(aad, 'utf8'));
+  }
   decipher.setAuthTag(Buffer.from(tagText, 'base64url'));
   return Buffer.concat([decipher.update(Buffer.from(ciphertextText, 'base64url')), decipher.final()]).toString('utf8');
 }
+
+function tokenAad(userId, googleSubject) { return `gmail-token:${userId}:${googleSubject}`; }
+function emailAad(userId, messageId) { return `email-record:${userId}:${messageId}`; }
 
 function cryptoKey() {
   return createHash('sha256').update(CONFIG.encryptionKey).digest();
@@ -1051,7 +1117,7 @@ async function initializeDatabase() {
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000
   };
-  if (CONFIG.databaseSsl) options.ssl = { rejectUnauthorized: false };
+  if (CONFIG.databaseSsl) options.ssl = { rejectUnauthorized: true };
   const pool = new Pool(options);
   pool.on('error', (error) => console.error('PostgreSQL pool error:', error.message));
   database = pool;
@@ -1117,10 +1183,55 @@ async function initializeDatabase() {
     for (const statement of schema) await database.query(statement);
     await database.query('DELETE FROM app_sessions WHERE expires_at <= NOW()');
     await database.query('DELETE FROM oauth_states WHERE expires_at <= NOW()');
+    await migrateLegacyEncryptedRecords();
   } catch (error) {
     database = null;
     await pool.end().catch(() => {});
     throw error;
+  }
+}
+
+async function migrateLegacyEncryptedRecords() {
+  if (!hasStrongEncryptionKey()) return;
+  const tokenRows = await database.query(
+    `SELECT user_id, google_subject, token_ciphertext
+       FROM gmail_connections
+      WHERE token_ciphertext LIKE 'v1.%'`
+  );
+  for (const row of tokenRows.rows) {
+    try {
+      const token = JSON.parse(decrypt(row.token_ciphertext, tokenAad(row.user_id, row.google_subject)));
+      if (token.googleSubject && token.googleSubject !== row.google_subject) throw new Error('Token subject does not match its connection');
+      await database.query(
+        `UPDATE gmail_connections
+            SET token_ciphertext = $4, updated_at = NOW()
+          WHERE user_id = $1 AND google_subject = $2 AND token_ciphertext = $3`,
+        [row.user_id, row.google_subject, row.token_ciphertext, encrypt(JSON.stringify({ ...token, googleSubject: row.google_subject }), tokenAad(row.user_id, row.google_subject))]
+      );
+    } catch (error) {
+      console.error('Could not migrate an encrypted Gmail token:', error.message);
+    }
+  }
+
+  const emailRows = await database.query(
+    `SELECT user_id, gmail_message_id, encrypted_payload
+       FROM email_records
+      WHERE encrypted_payload LIKE 'v1.%'`
+  );
+  for (const row of emailRows.rows) {
+    try {
+      const email = JSON.parse(decrypt(row.encrypted_payload, emailAad(row.user_id, row.gmail_message_id)));
+      if (email.id && String(email.id) !== row.gmail_message_id) throw new Error('Email record id does not match its row');
+      const { bodyText: _bodyText, ...storedEmail } = email;
+      await database.query(
+        `UPDATE email_records
+            SET encrypted_payload = $4, updated_at = NOW()
+          WHERE user_id = $1 AND gmail_message_id = $2 AND encrypted_payload = $3`,
+        [row.user_id, row.gmail_message_id, row.encrypted_payload, encrypt(JSON.stringify(storedEmail), emailAad(row.user_id, row.gmail_message_id))]
+      );
+    } catch (error) {
+      console.error('Could not migrate an encrypted email record:', error.message);
+    }
   }
 }
 
@@ -1200,9 +1311,13 @@ function clearAuthAttempts(req, action) {
 }
 
 function requireEncryption() {
-  if (!CONFIG.encryptionKey || CONFIG.encryptionKey.includes('buraya-')) {
-    throw new HttpError(409, 'APP_ENCRYPTION_KEY ayarlanmadan gerçek e-posta verileri saklanamaz.', 'encryption_not_configured');
+  if (!hasStrongEncryptionKey()) {
+    throw new HttpError(409, 'APP_ENCRYPTION_KEY en az 32 rastgele bayt olmadan gerçek e-posta verileri saklanamaz.', 'encryption_not_configured');
   }
+}
+
+function hasStrongEncryptionKey() {
+  return !CONFIG.encryptionKey.includes('buraya-') && Buffer.byteLength(CONFIG.encryptionKey, 'utf8') >= 32;
 }
 
 function googleIsConfigured() {
@@ -1314,9 +1429,17 @@ const MIME_TYPES = {
 
 function assertSameOrigin(req) {
   const origin = req.headers.origin;
-  if (!origin) return;
-  const expected = CONFIG.appOrigin || `http${CONFIG.production ? 's' : ''}://${req.headers.host}`;
+  if (!origin) throw new HttpError(403, 'İstek kaynağı doğrulanamadı.', 'missing_origin');
+  const expected = CONFIG.appOrigin || `http://${req.headers.host}`;
   if (origin !== expected) throw new HttpError(403, 'Geçersiz istek kaynağı.', 'invalid_origin');
+}
+
+function validateAppOrigin(value) {
+  let parsed;
+  try { parsed = new URL(value); } catch { throw new Error('APP_ORIGIN must be an absolute URL without a path.'); }
+  if (parsed.origin !== value || (CONFIG.production && parsed.protocol !== 'https:')) {
+    throw new Error('APP_ORIGIN must be an HTTPS origin without a path in production.');
+  }
 }
 
 async function readJson(req) {

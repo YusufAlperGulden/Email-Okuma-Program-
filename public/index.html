@@ -127,6 +127,9 @@
           <div class="posta-listesi" id="postaListesi" aria-live="polite"></div>
         </section>
       </main>
+      <footer class="hesap-altligi">
+        <button class="metin-dugme hesap-sil-dugmesi" id="hesapSilDugmesi" type="button" hidden>Hesabımı ve verilerimi sil</button>
+      </footer>
     </div>
 
     <template id="postaKartiSablonu">
@@ -186,6 +189,19 @@
         <input id="erteleTarihi" type="datetime-local" required />
         <p class="form-hatasi" id="erteleHatasi" aria-live="polite"></p>
         <button class="birincil-dugme tam-genislik" type="submit">Hatırlatıcı oluştur</button>
+      </form>
+    </dialog>
+
+    <dialog class="giris-penceresi" id="hesapSilPenceresi" aria-labelledby="hesapSilBasligi">
+      <form method="dialog" id="hesapSilFormu">
+        <button class="pencere-kapat" type="button" id="hesapSilKapat" aria-label="Hesap silme penceresini kapat">×</button>
+        <p class="goz-bant">VERİ SİLME</p>
+        <h2 id="hesapSilBasligi">Hesabı kalıcı olarak sil</h2>
+        <p>Gmail bağlantın, kaydedilmiş özetlerin ve tüm oturumların silinir. Bu işlem geri alınamaz.</p>
+        <label for="hesapSilParolaGirdisi">Mevcut parolan</label>
+        <input id="hesapSilParolaGirdisi" type="password" autocomplete="current-password" required />
+        <p class="form-hatasi" id="hesapSilHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik tehlikeli-dugme" type="submit" id="hesapSilOnay">Hesabımı ve verilerimi sil</button>
       </form>
     </dialog>
 

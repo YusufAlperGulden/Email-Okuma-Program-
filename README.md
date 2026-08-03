@@ -1,70 +1,89 @@
-# Odak Kutusu
+# OdakPosta
 
-Odak Kutusu, mevcut Gmail hesabınızı kullanan ama Gmail veya Outlook arayüzü olmayan kişisel bir **yapay zekâ e-posta kontrol merkezi**dir. Her e-postayı Gemini ile Türkçe özetler; acil konuları, cevap vermeniz gerekenleri ve unutulan takipleri tek panelde öne çıkarır.
+OdakPosta, her kişinin kendi uygulama hesabıyla giriş yapıp kendi Gmail gelen kutusunu bağlayabildiği yapay zekâ destekli e-posta özet panelidir. Uygulama e-posta göndermez, silmez, arşivlemez veya okundu durumunu değiştirmez.
 
-Bu proje artık **çok kullanıcılı (multi-user)** bir yapıya sahiptir! Herhangi biri kendi e-posta ve parolası ile kayıt olabilir, kendi Gmail hesabını bağlayabilir ve kendi şifrelenmiş gelen kutusu özetlerine ulaşabilir. Tüm kullanıcı verileri ve şifreli tokenlar PostgreSQL veritabanında güvende tutulur.
+## Kullanıcı akışı
 
-## Neler yapar?
+1. Kişi uygulamada kendi e-posta adresi ve en az 12 karakterlik parolasıyla hesap oluşturur.
+2. Bu adresin Gmail adresi olması gerekmez. Hesap e-postası ile bağlanacak Gmail hesabı farklı olabilir.
+3. Gmail bağlantısından önce kişi, verinin şifreli olarak işlenmesi ve yapay zekâ özeti etkinse Gemini'ye gönderilmesi için açık onay verir.
+4. Google'ın açtığı sayfada kendi Gmail hesabını seçer. Her Gmail kimliği yalnızca bir OdakPosta hesabına bağlanabilir.
+5. İlk en fazla 100 gelen kutusu e-postası arka planda özetlenir; panel yalnızca o uygulama hesabının verisini gösterir.
 
-- Çoklu kullanıcı desteği (Kayıt Ol / Giriş Yap).
-- Her kullanıcı için kendi Gmail gelen kutusunu salt-okunur OAuth izniyle tarar.
-- Her e-posta için Türkçe özet, önem seviyesi, önem gerekçesi ve aksiyon maddeleri çıkarır.
-- `Acil`, `aksiyon gerekli`, `unutulan / takip`, `bilgi` ve `tamamlanan` görünümlerini sunar.
-- E-postayı **tamamlandı** olarak işaretlemeyi veya belirli bir saate ertelemeyi destekler.
-- Orijinal e-postayı Gmail'de açar.
-- Telefon, tablet ve bilgisayardan kullanılabilen responsive bir web arayüzü sunar.
-- Gmail bağlanır bağlanmaz ilk 100 uygun gelen kutusu e-postasını arka planda özetlemeye başlar.
-- Yeni e-postaları varsayılan olarak her 15 dakikada bir kontrol eder; ekrana bakmanız veya **Postaları yenile** düğmesine basmanız gerekmez.
+Bağlı Gmail değiştirildiğinde önceki Gmail'e ait özetler silinir. **Gmail'i değiştir** seçeneği Google yetkisini kaldırmayı dener ve kaydedilmiş özetleri siler. **Hesabımı ve verilerimi sil** seçeneği uygulama hesabını, oturumları, Gmail bağlantısını ve saklanan özetleri kalıcı olarak siler.
 
-Uygulama e-posta göndermez, silmez, arşivlemez, okundu durumunu değiştirmez ve otomatik cevap vermez. Yapay zekâ yalnızca karar desteği üretir.
+## Saklanan veriler ve güvenlik sınırı
 
-## Render'a dağıtma
+- Parolalar `scrypt` ile tuzlanmış hash olarak saklanır; düz metin parola saklanmaz.
+- Oturum kimlikleri veritabanında yalnızca hash olarak tutulur.
+- Google OAuth belirteçleri ile e-posta özeti/metaverisi AES-256-GCM ile şifrelenir; yeni kayıtlar kullanıcı ve Gmail/ileti kimliğine bağlı ek doğrulama verisiyle korunur.
+- Ham e-posta gövdesi yalnızca özet üretimi sırasında bellekte kullanılır; yeni kayıtlar Postgres'e ham gövde olmadan yazılır. Panel en fazla 500 şifrelenmiş özet kaydı tutar.
+- E-posta gövdesi hiçbir API yanıtında tarayıcıya geri dönmez.
 
-Depodaki [`render.yaml`](./render.yaml), Render Blueprint olarak hazırdır. Bu Blueprint uygulamanız için otomatik olarak ücretsiz bir PostgreSQL veritabanı kurar ve bağlar.
+Önceki v1 şifreli kayıtlar varsa uygulama başlangıçta bunları v2 biçimine taşır ve çözülebilen ham gövde alanlarını kaldırır.
 
-1. Bu klasörü kendi GitHub deponuza gönderin.
-2. Render'da **New + → Blueprint** seçin ve GitHub deponuzu bağlayın.
-3. Blueprint kurulumu, `DATABASE_URL` değişkenini otomatik dolduracak ve `APP_ENCRYPTION_KEY` Render tarafından rastgele oluşturulacaktır.
-4. İlk dağıtım bittiğinde Render'ın verdiği `https://...onrender.com` adresini açın.
-5. Render hizmetinin **Environment** ekranına aşağıdaki değerleri ekleyin ve yeniden dağıtın:
+`APP_ENCRYPTION_KEY` dağıtımın veri anahtarıdır. En az 32 rastgele bayt olmalıdır; Render Blueprint bunu 256 bit rastgele değer olarak üretir. Bu anahtarı değiştirmek mevcut şifreli veriyi okunamaz yapar, bu yüzden güvenli biçimde yedekleyin ve rotasyon planı olmadan değiştirmeyin.
 
-| Değişken | Değer |
-| --- | --- |
-| `GEMINI_API_KEY` | Kendi Gemini API anahtarınız |
-| `GOOGLE_CLIENT_ID` | Google Cloud OAuth Web Application istemci kimliği |
-| `GOOGLE_CLIENT_SECRET` | Aynı OAuth istemcisinin sırrı |
-| `GEMINI_MODEL` | İsteğe bağlı; varsayılan `gemini-2.5-flash-lite` |
-| `AUTO_SYNC_MINUTES` | İsteğe bağlı; varsayılan `15`, kapatmak için `0` |
+## Render Blueprint ile dağıtım
 
-> [!NOTE]
-> Render'ın ücretsiz veritabanı planı süre sınırlıdır. Daha kalıcı ve ücretsiz bir veritabanı için Supabase veya Neon.tech kullanarak aldığınız `DATABASE_URL` adresini Render'da Environment kısmına manuel olarak ekleyebilirsiniz.
+[`render.yaml`](./render.yaml) bir Render web servisi ile Free Render Postgres veritabanını bağlar. `DATABASE_URL` private bağlantı adresinden otomatik gelir; sırları kaynak koda yazmaz.
 
-## Google / Gmail OAuth kurulumu
+1. Depoyu GitHub'a gönderin ve Render'da **New → Blueprint** ile bağlayın.
+2. Blueprint oluşturulduğunda `APP_ENCRYPTION_KEY` otomatik üretilir.
+3. Servisin **Environment** ekranına şunları ekleyin:
 
-1. Google Cloud Console'da bir proje ve OAuth consent screen oluşturun. Hedef Kitle (Audience) seçeneğini **External (Harici)** seçin.
-2. **Credentials → Create credentials → OAuth client ID → Web application** ile istemci oluşturun.
-3. Authorized redirect URI alanına, Render adresinizi kullanarak tam olarak şunu ekleyin:
+| Değişken | Gerekli | Açıklama |
+| --- | --- | --- |
+| `GOOGLE_CLIENT_ID` | Evet | Google OAuth Web Application istemci kimliği |
+| `GOOGLE_CLIENT_SECRET` | Evet | Aynı istemcinin sırrı |
+| `GEMINI_API_KEY` | AI özeti için | Billed/paid Gemini API projesinin anahtarı |
+| `GEMINI_MODEL` | Hayır | Varsayılan `gemini-2.5-flash-lite` |
+| `APP_ORIGIN` | Özel alan adı için | Örn. `https://posta.ornek.com`; Render varsayılan alan adını kendisi algılar |
+| `AUTO_SYNC_MINUTES` | Hayır | Varsayılan `15`; kapatmak için `0` |
+
+4. Google Cloud Console'da bir **OAuth client ID → Web application** oluşturun. Authorized redirect URI olarak şunu ekleyin:
 
 ```text
 https://SIZIN-RENDER-ADRESINIZ.onrender.com/auth/google/callback
 ```
 
-4. `GOOGLE_CLIENT_ID` ve `GOOGLE_CLIENT_SECRET` değerlerini Render ortam değişkenlerine ekleyin.
-5. Uygulamaya girip hesap oluşturun ve ardından panel üzerinden **Gmail'i bağla** düğmesine basın.
+Özel alan adı kullanıyorsanız `APP_ORIGIN` ve Google'daki redirect URI aynı HTTPS origin olmalıdır.
 
-Kod, Render'ın dış alan adını otomatik algılar ve yönlendirme adresini oluşturur. 
+### Free Render gerçeği
 
-İstenen tek Gmail yetkisi `gmail.readonly`'dir. Google OAuth uygulaması test modundaysa kendi Google hesabınızı (veya giriş yapacak kullanıcıların hesaplarını) test kullanıcısı olarak eklemeniz gerekir.
+Bu Blueprint ilk deneme için uygundur, ancak üretim için dayanıklı değildir. Free Render Postgres 1 GB ile sınırlıdır, 30 gün sonra sona erer ve 14 günlük yükseltme süresinden sonra tüm veriler silinir. Free web servisi 15 dakika gelen istek almadığında uyur; dolayısıyla 15 dakikalık otomatik eşitleme uyku sırasında çalışmaz. Ayrıntılar için [Render Free planı](https://render.com/docs/free) ve [Blueprint başvurusu](https://render.com/docs/blueprint-spec) belgelerine bakın.
 
-## Gemini ayarı ve gizlilik
+Kesintisiz otomatik eşitleme istiyorsanız web servisini `starter` planına çıkarın. Render Postgres süresi dolmadan önce veritabanını ücretli plana yükseltin veya `DATABASE_URL` değerini başka bir sağlayıcıya taşıyın. Eski tek-kullanıcılı disk kurulumundaki token/özet dosyaları otomatik taşınmaz; kullanıcıların Gmail'i yeniden bağlaması gerekir.
 
-`GEMINI_API_KEY` yalnızca Render'ın sunucu ortamında bulunur; tarayıcıya hiç gönderilmez. E-posta metni Gemini'ye analiz amacıyla iletilir, bu nedenle kurumsal veri politikalarınızla uyumlu bir Gemini API hesabı kullanın. E-posta gövdesi, olası prompt injection içerdiği varsayılan güvenilmeyen veri olarak işlenir; model hiçbir harici işlemi yapamaz.
+## Yerel geliştirme
 
-Gemini anahtarı henüz tanımlı değilse uygulama gerçek e-postayı atlamaz; sınırlı yerel öncelik kurallarıyla geçici bir sonuç gösterir. Gerçek Türkçe özet ve aksiyon analizi için anahtar gereklidir.
+1. `.env.example` dosyasını `.env` olarak kopyalayın.
+2. Yerel veya barındırılan bir PostgreSQL bağlantı dizesini `DATABASE_URL` içine koyun.
+3. `APP_ENCRYPTION_KEY`, Google OAuth ve (varsa) Gemini değerlerini ekleyin.
+4. Bağımlılıkları yükleyip uygulamayı başlatın:
 
-## Güvenlik sınırları
+```text
+npm install
+npm start
+```
 
-- Kullanıcı parolaları PostgreSQL veritabanında `scrypt` algoritması ile tuzlanarak (salt) güvenle tutulur (hashlenir).
-- OAuth belirteçleri ve yerel özet indeksi AES-256-GCM ile şifrelenir ve kullanıcıya özel anahtarla ayrıştırılır.
-- Gemini API anahtarı, OAuth sırrı, şifreleme anahtarları Git'e eklenmez.
-- E-posta metni kalıcı API yanıtlarına geri verilmez; panel yalnızca gerekli özet ve metaveriyi görür.
+Harici ve TLS kullanan bir Postgres için `DATABASE_SSL=true` kullanın. Render Blueprint'in private bağlantısı için `DATABASE_SSL=false` kalmalıdır; bağlantı Render'ın private network'ünde yapılır.
+
+## Gmail ve Gemini için yayın öncesi zorunluluklar
+
+`gmail.readonly` Google tarafından **restricted** scope olarak sınıflandırılır. Test modunda test kullanıcılarıyla çalışabilirsiniz; herkese açık sürüm için OAuth verification, gizlilik politikası, veri silme akışı ve sunucuda restricted veri saklandığı/iletildiği için gerekli güvenlik değerlendirmesi planlanmalıdır. Google'ın [scope listesi](https://developers.google.com/workspace/gmail/api/auth/scopes), [User Data Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy) ve [restricted-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification) belgeleri takip edilmelidir.
+
+Gmail içeriklerini **ücretsiz Gemini API katmanına göndermeyin**: bu katmandaki istek/yanıtlar ürün geliştirme için kullanılabilir ve insan incelemesine tabi olabilir. Herkese açık Gmail uygulaması için yalnızca ücretli/billed Gemini API projesi kullanın; ücretli katmanda istek ve yanıtlar Google ürünlerini iyileştirmek için kullanılmaz. Bkz. [Gemini API şartları](https://ai.google.dev/gemini-api/terms) ve [fiyatlandırma/veri kullanımı](https://ai.google.dev/gemini-api/docs/pricing).
+
+Uygulama hesabı e-postası şu anda doğrulama ve parola sıfırlama hizmeti içermez. Genel kullanıma açmadan önce doğrulanmış e-posta veya Google Sign-In, kalıcı rate limit/kota ve bir iş kuyruğu ekleyin. Bu sürüm küçük kontrollü beta için temel kullanıcı izolasyonunu sağlar; geniş ölçekli herkese açık SaaS olarak henüz değerlendirilmemelidir.
+
+## Render alternatifleri ve masaüstü seçeneği
+
+| Seçenek | Ne zaman uygun? |
+| --- | --- |
+| [Neon](https://neon.com/pricing) + mevcut Node uygulaması | Postgres'i çok az kod değişikliğiyle Render'dan taşımak için; ücretsiz katman zamanla sona ermez ancak kapasitesi sınırlıdır. |
+| [Supabase](https://supabase.com/pricing) | Postgres, Auth ve Row Level Security'yi birlikte istiyorsanız; çok kullanıcılı ürün için güçlü bir temel. |
+| [Cloudflare Workers + D1](https://developers.cloudflare.com/d1/) | Düşük maliyetli cron/edge yaklaşımı için; D1 SQLite'dır, bu nedenle mevcut Postgres sunucusunun yeniden yazılması gerekir. |
+| [Electron](https://www.electronjs.org/docs/latest/tutorial/tutorial-packaging) Windows uygulaması | Her kullanıcının verisini kendi bilgisayarında tutacağı yerel-first ürün için; OAuth sistem tarayıcısında yapılmalı ve ortak Gemini anahtarı `.exe` içine konmamalıdır. |
+
+Neon, kısa vadede en az geçiş maliyetli Render Postgres alternatifi; Supabase ise doğrulanmış kullanıcı hesabı ve RLS eklemek istediğinizde daha uygun uzun vadeli mimaridir.

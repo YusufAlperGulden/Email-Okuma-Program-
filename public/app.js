@@ -54,7 +54,7 @@
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
     accountEmail: $("#hesapEpostaGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
-    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi")
+    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay")
   };
 
   function normaliseEmail(email, index) {
@@ -377,11 +377,37 @@
     catch (_) { notify("Oturum kapatılamadı.", "uyari"); }
   }
 
+  function showDeleteAccount() {
+    if (!state.user) return;
+    elements.deleteAccountPassword.value = "";
+    elements.deleteAccountError.textContent = "";
+    if (!elements.deleteAccountDialog.open) elements.deleteAccountDialog.showModal();
+    window.setTimeout(() => elements.deleteAccountPassword.focus(), 30);
+  }
+
+  async function deleteAccount() {
+    const password = elements.deleteAccountPassword.value;
+    if (!password) return;
+    elements.deleteAccountConfirm.disabled = true;
+    elements.deleteAccountError.textContent = "";
+    try {
+      await request("/api/account", { method: "DELETE", body: JSON.stringify({ password }) });
+      elements.deleteAccountDialog.close();
+      state.user = null; state.connection = {}; state.emails = []; state.stats = {}; state.loginRequired = true;
+      updateAccountButton(); render(); showLogin("register", "Hesabın ve bağlı Gmail verilerin silindi.");
+    } catch (error) {
+      elements.deleteAccountError.textContent = error.message || "Hesap silinemedi.";
+    } finally {
+      elements.deleteAccountConfirm.disabled = false;
+    }
+  }
+
   function updateAccountButton() {
     const email = state.user?.email || "";
     const initials = email ? email.split("@")[0].split(/[._-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() : "OP";
     elements.account.textContent = initials || "OP";
     elements.account.title = email ? `${email} — çıkış seçenekleri` : "Giriş yap";
+    elements.deleteAccountButton.hidden = !email;
   }
 
   async function connectGmail() {
@@ -405,6 +431,7 @@
     try {
       await request("/api/disconnect", { method: "POST", body: "{}" });
       state.emails = []; state.stats = {}; state.connection = { gmailConnected: false, gmailConfigured: state.connection?.gmailConfigured };
+      elements.gmailConsent.checked = false;
       render();
       elements.gmailAddress.focus();
       notify("Gmail bağlantısı kaldırıldı. Başka bir hesabı bağlayabilirsin.", "basari");
@@ -427,6 +454,7 @@
     elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
+    elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
     elements.theme.addEventListener("click", () => { const dark = !document.body.classList.contains("koyu"); document.body.classList.toggle("koyu", dark); localStorage.setItem("odak-posta-tema", dark ? "dark" : "light"); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç"); });
     elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked && confirm("Oturumu kapatmak istiyor musun?")) logout(); });
     elements.setupLink.addEventListener("click", connectGmail);
