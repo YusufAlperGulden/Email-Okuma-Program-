@@ -4,7 +4,7 @@
 
 
   const state = {
-    emails: [], stats: {}, connection: {}, activeFilter: "all", sortBy: "ai", query: "", isDemo: false,
+    emails: [], tags: [], stats: {}, connection: {}, activeFilter: "all", sortBy: "ai", query: "", isDemo: false,
     currentSnoozeId: null, authChecked: false, loginRequired: false, user: null,
     authMode: "login", dashboardRefreshTimer: null, desktopOAuthTimer: null,
     desktopOAuthPending: false, desktopSettings: null, desktopSettingsRequired: false, localMode: false
@@ -20,7 +20,8 @@
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
     accountUsername: $("#kullaniciAdiGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
     snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), accountAvatarLetters: $("#oturumDugmesiHarfler"), accountAvatarImage: $("#oturumDugmesiResim"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsProfilePreview: $("#ayarProfilOnizleme"), settingsProfileInput: $("#ayarProfilGirdisi"), settingsProfileClear: $("#ayarProfilTemizle"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
-    desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet")
+    desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet"),
+    filterContainer: $("#filtrelerContainer"), manageTagsButton: $("#etiketYonetimiDugmesi"), tagManagerDialog: $("#etiketYoneticiPenceresi"), tagManagerForm: $("#etiketYoneticiFormu"), tagManagerClose: $("#etiketYoneticiKapat"), tagManagerBack: $("#etiketYoneticiGeri"), tagNameInput: $("#yeniEtiketAdi"), tagColorOptions: $("#renkSecenekleri"), tagManagerError: $("#etiketYoneticiHatasi"), tagSelectionDialog: $("#etiketSecimPenceresi"), tagSelectionForm: $("#etiketSecimFormu"), tagSelectionClose: $("#etiketSecimKapat"), tagSelectionList: $("#etiketListesiKapsayici"), tagSelectionError: $("#etiketSecimHatasi"), tagSelectionNewTagButton: $("#yeniEtiketYaratDugmesi")
   };
 
   let selectedProfilePicture = undefined;
@@ -45,7 +46,8 @@
       priority: email.priority || (category === "action" ? "Yüksek" : "Bilgi"),
       status: String(email.status || "open").toLowerCase(),
       originalUrl: email.originalUrl || email.url || null,
-      snoozedUntil: email.snoozedUntil || email.snoozeUntil || null
+      snoozedUntil: email.snoozedUntil || email.snoozeUntil || null,
+      tags: Array.isArray(email.tags) ? email.tags : []
     };
   }
 
@@ -110,6 +112,7 @@
       const data = await request("/api/dashboard");
       const rawEmails = Array.isArray(data?.emails) ? data.emails : [];
       state.emails = rawEmails.map(normaliseEmail);
+      state.tags = data?.tags || [];
       state.stats = data?.stats || {};
       state.connection = data?.connection || {};
       state.isDemo = false;
@@ -146,6 +149,12 @@
   function counts() {
     const all = state.emails;
     const active = all.filter(email => email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
+    const tagCounts = {};
+    if (state.tags) {
+      for (const tag of state.tags) {
+        tagCounts[tag.id] = active.filter(email => email.tags.includes(tag.id)).length;
+      }
+    }
     return {
       today: all.filter(email => isToday(email.receivedAt) && !isSnoozedForLater(email)).length,
       action: active.filter(email => email.category === "action").length,
@@ -156,7 +165,8 @@
       snoozed: all.filter(email => isSnoozedForLater(email)).length,
       starred: all.filter(email => email.labels && email.labels.includes("STARRED")).length,
         archived: all.filter(email => email.status === "archived").length,
-        trashed: all.filter(email => email.status === "trashed").length
+        trashed: all.filter(email => email.status === "trashed").length,
+      tags: tagCounts
     };
   }
 
@@ -194,6 +204,10 @@
       else if (state.activeFilter === "trashed") emails = emails.filter(email => email.status === "trashed");
     else if (state.activeFilter === "snoozed") emails = emails.filter(email => isSnoozedForLater(email));
       else if (state.activeFilter === "starred") emails = emails.filter(email => email.labels && email.labels.includes("STARRED"));
+    else if (state.activeFilter.startsWith("tag-")) {
+      const tagId = state.activeFilter.substring(4);
+      emails = emails.filter(email => email.tags.includes(tagId) && email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
+    }
     else if (state.activeFilter !== "all") emails = emails.filter(email => email.category === state.activeFilter && email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
     else emails = emails.filter(email => email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
     const query = state.query.trim().toLocaleLowerCase("tr-TR");
@@ -332,12 +346,56 @@
         topStar.textContent = isStarred ? "\u2605" : "\u2606";
         topStar.style.color = isStarred ? "#c09a06" : "var(--muted)";
       }
+      
+      const tagArea = $(".ozel-etiketler-alani", card);
+      if (tagArea && state.tags) {
+        email.tags.forEach(tagId => {
+          const t = state.tags.find(x => x.id === tagId);
+          if (t) {
+             const tagEl = document.createElement("span");
+             tagEl.className = "ozel-etiket-cip";
+             tagEl.style.backgroundColor = t.color;
+             tagEl.style.color = "#fff";
+             tagEl.style.padding = "2px 8px";
+             tagEl.style.borderRadius = "12px";
+             tagEl.style.fontSize = "0.75rem";
+             tagEl.style.marginLeft = "4px";
+             tagEl.textContent = t.name;
+             tagArea.appendChild(tagEl);
+          }
+        });
+      }
       fragment.append(card);
     }
     elements.list.append(fragment);
   }
 
-  function renderFilters() { $$(".filtre").forEach(button => button.classList.toggle("etkin", button.dataset.filtre === state.activeFilter)); }
+  function renderFilters() {
+    const c = counts();
+    
+    // Yalnızca custom tag filtrelerini temizleyip yeniden ekleyelim
+    $$(".filtre-custom").forEach(el => el.remove());
+    if (state.tags) {
+      state.tags.forEach(tag => {
+        const count = c.tags ? (c.tags[tag.id] || 0) : 0;
+        const btn = document.createElement("button");
+        btn.className = "filtre filtre-custom";
+        btn.type = "button";
+        btn.dataset.filtre = "tag-" + tag.id;
+        btn.innerHTML = `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:${tag.color}; margin-right:4px;"></span> ${tag.name} <span id="filtreTagSayisi-${tag.id}">${count}</span>`;
+        
+        btn.addEventListener("click", () => {
+          state.activeFilter = "tag-" + tag.id;
+          renderFilters();
+          renderList();
+        });
+        
+        elements.filterContainer.appendChild(btn);
+      });
+    }
+    
+    $$(".filtre").forEach(button => button.classList.toggle("etkin", button.dataset.filtre === state.activeFilter));
+  }
   function render() { renderStats(); renderFocus(); renderConnection(); renderFilters(); renderList(); }
 
   async function changeStatus(id, status) {
@@ -608,6 +666,126 @@
     window.setTimeout(() => elements.settingsUsername.focus(), 30);
   }
 
+  let currentEmailForTag = null;
+  function showTagSelection(emailId) {
+    currentEmailForTag = emailId;
+    elements.tagSelectionError.textContent = "";
+    elements.tagSelectionList.innerHTML = "";
+    
+    if (state.tags && state.tags.length > 0) {
+      const email = state.emails.find(e => e.id === emailId);
+      const emailTags = email && Array.isArray(email.tags) ? email.tags : [];
+      
+      state.tags.forEach(tag => {
+        const row = document.createElement("label");
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "0.5rem";
+        row.style.padding = "0.5rem";
+        row.style.border = "1px solid var(--border)";
+        row.style.borderRadius = "8px";
+        row.style.cursor = "pointer";
+        
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = emailTags.includes(tag.id);
+        checkbox.addEventListener("change", async () => {
+          try {
+            checkbox.disabled = true;
+            await request(`/api/emails/${encodeURIComponent(emailId)}/tags`, {
+              method: "POST",
+              body: JSON.stringify({ tagId: tag.id })
+            });
+            if (checkbox.checked && !emailTags.includes(tag.id)) emailTags.push(tag.id);
+            if (!checkbox.checked && emailTags.includes(tag.id)) emailTags.splice(emailTags.indexOf(tag.id), 1);
+            if (email) email.tags = emailTags;
+            render();
+          } catch (error) {
+            checkbox.checked = !checkbox.checked;
+            elements.tagSelectionError.textContent = "Etiket güncellenemedi.";
+          } finally {
+            checkbox.disabled = false;
+          }
+        });
+        
+        row.appendChild(checkbox);
+        row.insertAdjacentHTML('beforeend', `<span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:${tag.color};"></span>`);
+        row.insertAdjacentHTML('beforeend', `<span>${tag.name}</span>`);
+        
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.innerHTML = "🗑️";
+        deleteBtn.title = "Etiketi Sil";
+        deleteBtn.style.marginLeft = "auto";
+        deleteBtn.style.background = "none";
+        deleteBtn.style.border = "none";
+        deleteBtn.style.cursor = "pointer";
+        deleteBtn.style.opacity = "0.5";
+        deleteBtn.onmouseenter = () => deleteBtn.style.opacity = "1";
+        deleteBtn.onmouseleave = () => deleteBtn.style.opacity = "0.5";
+        deleteBtn.onclick = async (e) => {
+          e.preventDefault();
+          if (confirm(`'${tag.name}' etiketini silmek istediğinize emin misiniz?`)) {
+            try {
+              await request(`/api/tags/${encodeURIComponent(tag.id)}`, { method: "DELETE" });
+              state.tags = state.tags.filter(t => t.id !== tag.id);
+              state.emails.forEach(em => {
+                if (em.tags) em.tags = em.tags.filter(tId => tId !== tag.id);
+              });
+              render();
+              showTagSelection(emailId);
+            } catch (error) {
+              elements.tagSelectionError.textContent = "Silinemedi.";
+            }
+          }
+        };
+        row.appendChild(deleteBtn);
+        
+        elements.tagSelectionList.appendChild(row);
+      });
+    } else {
+      elements.tagSelectionList.innerHTML = "<p style='color:var(--muted); font-size:0.875rem;'>Henüz hiç etiket oluşturmadınız.</p>";
+    }
+    
+    elements.tagSelectionDialog.showModal();
+  }
+
+  function showTagManager() {
+    elements.settingsDialog.close();
+    elements.tagSelectionDialog.close();
+    elements.tagNameInput.value = "";
+    $$(".renk-butonu", elements.tagColorOptions).forEach((b, i) => {
+      b.classList.toggle("secili", i === 0);
+      b.style.borderColor = (i === 0) ? "white" : "transparent";
+    });
+    elements.tagManagerError.textContent = "";
+    elements.tagManagerDialog.showModal();
+  }
+
+  async function saveTag() {
+    const name = elements.tagNameInput.value.trim();
+    if (!name) { elements.tagManagerError.textContent = "Lütfen bir etiket adı girin."; return; }
+    const selectedColorBtn = $(".renk-butonu.secili", elements.tagColorOptions);
+    const color = selectedColorBtn ? selectedColorBtn.dataset.renk : "#3B82F6";
+    
+    try {
+      elements.tagManagerError.textContent = "Kaydediliyor...";
+      const newTag = await request("/api/tags", {
+        method: "POST",
+        body: JSON.stringify({ name, color })
+      });
+      if (newTag && newTag.id) {
+        state.tags.push(newTag);
+        render();
+        elements.tagManagerDialog.close();
+        if (currentEmailForTag) showTagSelection(currentEmailForTag);
+        else elements.settingsDialog.showModal();
+      }
+    } catch (error) {
+      elements.tagManagerError.textContent = "Kaydedilemedi. Tekrar deneyin.";
+    }
+  }
+
   async function saveAccountSettings() {
     const username = elements.settingsUsername.value.trim();
     const newPassword = elements.settingsNewPassword.value;
@@ -790,10 +968,27 @@
     $$(".istatistik-karti").forEach(card => { const change = () => { state.activeFilter = card.dataset.filtre; render(); document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" }); }; card.addEventListener("click", change); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); change(); } }); });
     elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); });
       if ($("#siralamaSecimi")) $("#siralamaSecimi").addEventListener("change", (e) => { state.sortBy = e.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
-    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taşındı.", "Çöp kutusuna taşınamadı.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arşive kaldırıldı.", "Arşivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yıldızlandı.", "Yıldızlanamadı.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arşivden çıkarıldı.", "İşlem başarısız.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta çöp kutusundan çıkarıldı.", "İşlem başarısız.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
+    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".etiketle-dugmesi")) showTagSelection(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taşındı.", "Çöp kutusuna taşınamadı.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arşive kaldırıldı.", "Arşivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yıldızlandı.", "Yıldızlanamadı.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arşivden çıkarıldı.", "İşlem başarısız.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta çöp kutusundan çıkarıldı.", "İşlem başarısız.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
+    
+    if (elements.manageTagsButton) elements.manageTagsButton.addEventListener("click", showTagManager);
+    if (elements.tagManagerForm) elements.tagManagerForm.addEventListener("submit", event => { event.preventDefault(); saveTag(); });
+    if (elements.tagManagerClose) elements.tagManagerClose.addEventListener("click", () => { elements.tagManagerDialog.close(); if (currentEmailForTag) showTagSelection(currentEmailForTag); });
+    if (elements.tagManagerBack) elements.tagManagerBack.addEventListener("click", () => { elements.tagManagerDialog.close(); if (currentEmailForTag) showTagSelection(currentEmailForTag); else elements.settingsDialog.showModal(); });
+    if (elements.tagSelectionClose) elements.tagSelectionClose.addEventListener("click", () => elements.tagSelectionDialog.close());
+    if (elements.tagSelectionNewTagButton) elements.tagSelectionNewTagButton.addEventListener("click", showTagManager);
+    if (elements.tagColorOptions) {
+      $$(".renk-butonu", elements.tagColorOptions).forEach(btn => {
+        btn.addEventListener("click", () => {
+          $$(".renk-butonu", elements.tagColorOptions).forEach(b => { b.classList.remove("secili"); b.style.borderColor = "transparent"; });
+          btn.classList.add("secili");
+          btn.style.borderColor = "white";
+        });
+      });
+    }
+    
     if (elements.settingsForm) { elements.settingsForm.addEventListener("submit", event => { event.preventDefault(); void saveAccountSettings(); }); }
     if (elements.settingsProfileInput) {
       elements.settingsProfileInput.addEventListener("change", async (event) => {
@@ -867,6 +1062,31 @@
     }
   }
 
-  async function boot() { randomizeSlogan(); initialiseTheme(); bindEvents(); const allowed = await checkAuth(); if (allowed) await loadDashboard(); }
+  async function boot() { 
+    randomizeSlogan(); 
+    initialiseTheme(); 
+    bindEvents(); 
+    
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+      } catch (err) {
+        console.error('Service Worker registration failed:', err);
+      }
+    }
+    
+    // Listen for online/offline events
+    window.addEventListener('offline', () => {
+      notify("Çevrimdışı moddasınız. Son veriler gösteriliyor.", "uyari");
+    });
+    window.addEventListener('online', () => {
+      notify("İnternet bağlantısı sağlandı.", "basari");
+      // Optional: sync() to refresh data if needed
+    });
+    
+    const allowed = await checkAuth(); 
+    if (allowed) await loadDashboard(); 
+  }
   boot();
 })();

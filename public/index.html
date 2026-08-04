@@ -6,6 +6,8 @@
     <meta name="theme-color" content="#15223d" />
     <meta name="description" content="Yapay zekâ destekli kişisel e-posta önceliklendirme paneli" />
     <title>Odak Posta</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="stylesheet" href="/styles.css?v=9" />
   </head>
   <body>
@@ -137,7 +139,7 @@
             </div>
           </div>
 
-          <div class="filtreler" role="toolbar" aria-label="E-posta filtresi">
+          <div class="filtreler" id="filtrelerContainer" role="toolbar" aria-label="E-posta filtresi">
             <button class="filtre etkin" type="button" data-filtre="all">Tümü <span id="tumSayisi">0</span></button>
             <button class="filtre" type="button" data-filtre="action">Aksiyon gerekli <span id="filtreAksiyonSayisi">0</span></button>
             <button class="filtre" type="button" data-filtre="info">Bilgi <span id="filtreBilgiSayisi">0</span></button>
@@ -167,7 +169,7 @@
               <span class="avatar"></span>
               <div><strong class="gonderen"></strong><span class="zaman"></span></div>
             </div>
-            <div class="etiketler"><button class="yildiz-ikonu" type="button" title="Yıldızla">☆</button><span class="oncelik-etiketi"></span><span class="durum-etiketi"></span></div>
+            <div class="etiketler"><button class="yildiz-ikonu" type="button" title="Yıldızla">☆</button><span class="oncelik-etiketi"></span><span class="durum-etiketi"></span><span class="ozel-etiketler-alani"></span></div>
           </div>
           <h3 class="konu"></h3>
           <p class="ozet"></p>
@@ -185,6 +187,7 @@
                 <button class="kart-dugme sil-dugmesi" type="button" title="Sil">🗑️ Sil</button>
                 <button class="kart-dugme copten-cikar-dugmesi" type="button" title="Çöp Kutusundan Çıkar" hidden>♻️ Geri Al</button>
                 <button class="kart-dugme arsivle-dugmesi" type="button" title="Arşivle">📥 Arşivle</button>
+                <button class="kart-dugme etiketle-dugmesi" type="button" title="Etiketle">🏷️ Etiketle</button>
                 <button class="kart-dugme arsivden-cikar-dugmesi" type="button" title="Arşivden Çıkar" hidden>📥 Arşivden Çıkar</button>
                 <button class="kart-dugme yildizla-dugmesi" type="button" title="Yıldızla">☆ Yıldızla</button>
                 <button class="kart-dugme takvim-dugmesi" type="button" title="Takvime Ekle">📅 Takvime Ekle</button>
@@ -241,6 +244,42 @@
       </form>
     </dialog>
 
+    <dialog class="etiket-secim-penceresi" id="etiketSecimPenceresi" aria-labelledby="etiketSecimBasligi">
+      <form method="dialog" id="etiketSecimFormu">
+        <button class="pencere-kapat" type="button" id="etiketSecimKapat" aria-label="Etiket penceresini kapat">×</button>
+        <p class="goz-bant">ETİKETLER</p>
+        <h2 id="etiketSecimBasligi">E-postaya Etiket Ata</h2>
+        <div class="etiket-listesi-kapsayici" id="etiketListesiKapsayici" style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
+        <p class="form-hatasi" id="etiketSecimHatasi" aria-live="polite"></p>
+        <button class="ikincil-dugme tam-genislik" type="button" id="yeniEtiketYaratDugmesi">+ Yeni Etiket Oluştur</button>
+      </form>
+    </dialog>
+
+    <dialog class="etiket-yonetici-penceresi" id="etiketYoneticiPenceresi" aria-labelledby="etiketYoneticiBasligi">
+      <form method="dialog" id="etiketYoneticiFormu">
+        <button class="pencere-kapat" type="button" id="etiketYoneticiKapat" aria-label="Etiket yöneticisini kapat">×</button>
+        <button class="pencere-kapat" type="button" id="etiketYoneticiGeri" aria-label="Geri Dön" style="right: auto; left: 1rem; border-radius: 50%;">←</button>
+        <p class="goz-bant" style="margin-left: 2rem;">YENİ ETİKET</p>
+        <h2 id="etiketYoneticiBasligi" style="margin-left: 2rem;">Etiket Oluştur</h2>
+        
+        <label for="yeniEtiketAdi">Etiket Adı</label>
+        <input type="text" id="yeniEtiketAdi" placeholder="Örn: Faturalar, İş" required maxlength="20">
+        
+        <label for="yeniEtiketRengi">Renk Seçimi</label>
+        <div class="renk-secenekleri" id="renkSecenekleri" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+          <button type="button" class="renk-butonu secili" data-renk="#3B82F6" style="background: #3B82F6; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; cursor: pointer;"></button>
+          <button type="button" class="renk-butonu" data-renk="#10B981" style="background: #10B981; width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;"></button>
+          <button type="button" class="renk-butonu" data-renk="#F59E0B" style="background: #F59E0B; width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;"></button>
+          <button type="button" class="renk-butonu" data-renk="#EF4444" style="background: #EF4444; width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;"></button>
+          <button type="button" class="renk-butonu" data-renk="#8B5CF6" style="background: #8B5CF6; width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;"></button>
+          <button type="button" class="renk-butonu" data-renk="#EC4899" style="background: #EC4899; width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;"></button>
+        </div>
+        
+        <p class="form-hatasi" id="etiketYoneticiHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik" type="submit" id="etiketKaydetDugmesi">Etiketi Kaydet</button>
+      </form>
+    </dialog>
+
     <dialog class="ertele-penceresi" id="ertelePenceresi" aria-labelledby="erteleBasligi">
       <form method="dialog" id="erteleFormu">
         <button class="pencere-kapat" type="button" id="erteleKapat" aria-label="Erteleme penceresini kapat">×</button>
@@ -278,6 +317,7 @@
         <input id="ayarYeniParolaTekrarGirdisi" type="password" autocomplete="new-password" />
         <p class="form-hatasi" id="hesapAyarlariHatasi" aria-live="polite"></p>
         <button class="birincil-dugme tam-genislik" type="submit" id="hesapAyarlariOnay">Değişiklikleri kaydet</button>
+        <button class="ikincil-dugme tam-genislik" type="button" id="etiketYonetimiDugmesi" style="margin-top: 1rem;">Etiketleri Yönet</button>
         <button class="metin-dugme" type="button" id="hesapAyarlariCikis">Oturumu kapat</button>
         <button class="metin-dugme hesap-sil-dugmesi" type="button" id="hesapAyarlariSil">Hesabımı ve verilerimi sil</button>
       </form>
