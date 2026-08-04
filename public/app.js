@@ -383,9 +383,15 @@
     let prevStatus = email.status;
     let prevLabels = [...(email.labels || [])];
 
-    if (endpoint === 'trash' || endpoint === 'archive') { 
-      email.status = "done"; 
+    if (endpoint === 'trash') { 
+      email.status = "trashed"; 
       render(); 
+    } else if (endpoint === 'archive') { 
+      email.status = "archived"; 
+      render(); 
+    } else if (endpoint === 'untrash' || endpoint === 'unarchive') {
+      email.status = "done"; // Assuming un-trashing/un-archiving puts them back to done or default
+      render();
     } else if (endpoint === 'star') {
       email.labels = email.labels || [];
       if (email.labels.includes('STARRED')) {
