@@ -48,7 +48,7 @@ const CONFIG = Object.freeze({
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   googleRedirectUri: EFFECTIVE_GOOGLE_REDIRECT_URI,
   geminiApiKey: process.env.GEMINI_API_KEY || '',
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
   timezone: process.env.APP_TIMEZONE || 'Europe/Istanbul',
   // A connected inbox should stay useful without requiring the user to press
   // refresh. Set AUTO_SYNC_MINUTES=0 explicitly to turn this off.
