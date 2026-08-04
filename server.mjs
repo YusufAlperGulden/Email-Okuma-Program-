@@ -940,7 +940,12 @@ function isStaticLowPriority(email) {
     if (pattern.test(fromLower)) return true;
   }
 
-  const unsubscribeKeywords = ['unsubscribe', 'üyelikten ayrıl', 'click here to unsubscribe', 'e-posta almak istemiyorsanız', 'tarayıcıda görüntüle', 'view in browser', 'opt out'];
+  const unsubscribeKeywords = [
+    'unsubscribe', 'üyelikten ayrıl', 'click here to unsubscribe', 
+    'e-posta almak istemiyorsanız', 'tarayıcıda görüntüle', 'view in browser', 'opt out',
+    'reklam', 'fırsat', 'ücretsiz', 'bedava', 'çekiliş', 
+    'şimdi al', 'satın al', 'sınırlı süre', 'kampanyalar', 'indirim', 'sponsorlu'
+  ];
   for (const kw of unsubscribeKeywords) {
     if (bodyLower.includes(kw)) return true;
   }
