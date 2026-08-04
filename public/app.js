@@ -27,11 +27,11 @@
   function isDesktop() { return Boolean(desktopBridge && state.localMode); }
 
   function normaliseEmail(email, index) {
-    const labels = { urgent: "action", action_required: "action", important: "action", reminder: "followup", forgotten: "followup", information: "info", low: "info" };
+    const labels = { urgent: "action", action_required: "action", important: "action", reminder: "action", forgotten: "action", information: "info", low: "info" };
     const rawCategory = String(email.category || email.type || "").toLowerCase();
     const firstAction = Array.isArray(email.actionItems) ? email.actionItems[0] : null;
     const category = labels[rawCategory]
-      || (email.followUpState === "overdue" ? "followup" : "")
+      || (email.followUpState === "overdue" ? "action" : "")
       || (email.needsReply || ["urgent", "action_required", "important"].includes(String(email.priority || "").toLowerCase()) ? "action" : "")
       || rawCategory;
     return {
@@ -41,8 +41,8 @@
       summary: email.summary || email.aiSummary || email.excerpt || "Bu e-posta için henüz özet yok.",
       importanceReason: email.importanceReason || email.reason || email.aiReason || "Öncelik değerlendirmesi yapıldı.",
       action: email.action || email.suggestedAction || email.nextAction || firstAction?.task || "E-postayı incele.",
-      category: ["action", "followup", "info", "today"].includes(category) ? category : "info",
-      priority: email.priority || (category === "action" ? "Yüksek" : category === "followup" ? "Takip" : "Bilgi"),
+      category: ["action", "info", "today"].includes(category) ? category : "info",
+      priority: email.priority || (category === "action" ? "Yüksek" : "Bilgi"),
       status: String(email.status || "open").toLowerCase(),
       originalUrl: email.originalUrl || email.url || null,
       snoozedUntil: email.snoozedUntil || email.snoozeUntil || null
@@ -149,7 +149,7 @@
     return {
       today: all.filter(email => isToday(email.receivedAt) && !isSnoozedForLater(email)).length,
       action: active.filter(email => email.category === "action").length,
-      followup: active.filter(email => email.category === "followup").length,
+      
       info: active.filter(email => email.category === "info").length,
       all: active.length,
       done: all.filter(email => email.status === "done").length,
@@ -165,7 +165,7 @@
   }
 
   function statValue(key, fallback) {
-    const candidates = { today: ["today", "todayCount", "newToday"], action: ["action", "actionRequired", "actionRequiredCount", "important"], followup: ["followup", "forgotten", "followUpCount"], info: ["info", "information"] }[key] || [];
+    const candidates = { today: ["today", "todayCount", "newToday"], action: ["action", "actionRequired", "actionRequiredCount", "important", "followup", "forgotten", "followUpCount"], info: ["info", "information"] }[key] || [];
     for (const name of candidates) if (Number.isFinite(Number(state.stats?.[name]))) return Number(state.stats[name]);
     return fallback;
   }
@@ -183,7 +183,7 @@
   }
 
   function categoryLabel(category) {
-    return ({ action: "Aksiyon gerekli", followup: "Takip", info: "Bilgi", today: "Bugün" })[category] || "Bilgi";
+    return ({ action: "Aksiyon gerekli", info: "Bilgi", today: "Bugün" })[category] || "Bilgi";
   }
 
   function filteredEmails() {
@@ -198,19 +198,19 @@
     else emails = emails.filter(email => email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
     const query = state.query.trim().toLocaleLowerCase("tr-TR");
     if (query) emails = emails.filter(email => [email.sender, email.subject, email.summary, email.importanceReason, email.action].join(" ").toLocaleLowerCase("tr-TR").includes(query));
-    const order = { action: 0, followup: 1, info: 2 };
+    const order = { action: 0, info: 1 };
     return emails.sort((a, b) => (order[a.category] ?? 3) - (order[b.category] ?? 3) || new Date(b.receivedAt) - new Date(a.receivedAt));
   }
 
   function renderStats() {
     const c = counts();
-    const values = { today: c.today, action: c.action, followup: c.followup, info: c.info };
-    $("#bugunSayisi").textContent = values.today; $("#aksiyonSayisi").textContent = values.action; $("#takipSayisi").textContent = values.followup; $("#bilgiSayisi").textContent = values.info;
+    const values = { today: c.today, action: c.action, info: c.info };
+    $("#bugunSayisi").textContent = values.today; $("#aksiyonSayisi").textContent = values.action; $("#bilgiSayisi").textContent = values.info;
     $("#bugunAlt").textContent = values.today === 1 ? "yeni e-posta" : "yeni e-posta";
     $("#aksiyonAlt").textContent = values.action ? "yanıt bekliyor" : "bekleyen yok";
-    $("#takipAlt").textContent = values.followup ? "hatırlatılacak" : "takip temiz";
+    
     $("#bilgiAlt").textContent = values.info ? "okunabilir" : "bilgi postası yok";
-    $("#tumSayisi").textContent = c.all; $("#filtreAksiyonSayisi").textContent = c.action; $("#filtreTakipSayisi").textContent = c.followup;
+    $("#tumSayisi").textContent = c.all; $("#filtreAksiyonSayisi").textContent = c.action;
     if ($("#filtreErtelenenSayisi")) $("#filtreErtelenenSayisi").textContent = c.snoozed;
     if ($("#filtreYildizliSayisi")) $("#filtreYildizliSayisi").textContent = c.starred;
       if ($("#filtreArsivSayisi")) $("#filtreArsivSayisi").textContent = c.archived;
@@ -226,10 +226,7 @@
     }
     if (c.action) {
       elements.focusTitle.textContent = `${c.action} e-posta bugün senden aksiyon bekliyor.`;
-      elements.focusText.textContent = c.followup ? `${c.followup} konu için de takip zamanı gelmiş. Önce son tarihi olanları ele al.` : "En yüksek öncelikli postalara kısa bir yanıt vererek güne önden başla.";
-    } else if (c.followup) {
-      elements.focusTitle.textContent = "Bugün için acil aksiyon görünmüyor.";
-      elements.focusText.textContent = `${c.followup} takip konusunu gözden geçirmen yeterli; kalan postalar bilgilendirme niteliğinde.`;
+      elements.focusText.textContent = "En yüksek öncelikli postalara kısa bir yanıt vererek güne önden başla.";
     } else {
       elements.focusTitle.textContent = "Gelen kutun kontrol altında.";
       elements.focusText.textContent = "Şu an acil yanıt ya da gecikmiş takip gerektiren bir e-posta yok.";
