@@ -179,3 +179,32 @@ body.koyu #ayarProfilTemizle:hover { background: #351a20; color: #ffe0e4; border
   color: #f7cf45;
 }
 
+
+.ai-loading-bar {
+  display: inline-block;
+  width: 100px;
+  height: 4px;
+  background-color: var(--yuzey-rengi);
+  border-radius: 2px;
+  margin-left: 10px;
+  overflow: hidden;
+  position: relative;
+  vertical-align: middle;
+}
+
+.ai-loading-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 50%;
+  height: 100%;
+  background-color: var(--vurgu-rengi);
+  border-radius: 2px;
+  animation: loading-slide 1.5s infinite linear;
+}
+
+@keyframes loading-slide {
+  0% { left: -50%; }
+  100% { left: 100%; }
+}

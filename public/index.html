@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#15223d" />
     <meta name="description" content="Yapay zekâ destekli kişisel e-posta önceliklendirme paneli" />
     <title>Odak Posta</title>
-    <link rel="stylesheet" href="/styles.css?v=8" />
+    <link rel="stylesheet" href="/styles.css?v=9" />
   </head>
   <body>
     <a class="atla" href="#ana-icerik">Ana içeriğe geç</a>
@@ -123,6 +123,8 @@
             <button class="filtre" type="button" data-filtre="snoozed">Ertelenenler <span id="filtreErtelenenSayisi">0</span></button>
               <button class="filtre" type="button" data-filtre="starred">Yıldızlananlar <span id="filtreYildizliSayisi">0</span></button>
             <button class="filtre" type="button" data-filtre="done">Tamamlananlar</button>
+            <button class="filtre" type="button" data-filtre="archived">Arşivlenenler <span id="filtreArsivSayisi">0</span></button>
+            <button class="filtre" type="button" data-filtre="trashed">Silinenler <span id="filtreSilinenSayisi">0</span></button>
           </div>
 
           <div class="posta-liste-durumu" id="listeDurumu" aria-live="polite"></div>
@@ -160,7 +162,9 @@
               <button class="kart-dugme ertele-dugmesi" type="button" title="Ertele">⏱ Ertele</button>
               
                 <button class="kart-dugme sil-dugmesi" type="button" title="Sil">🗑️ Sil</button>
+                <button class="kart-dugme copten-cikar-dugmesi" type="button" title="Çöp Kutusundan Çıkar" hidden>♻️ Geri Al</button>
                 <button class="kart-dugme arsivle-dugmesi" type="button" title="Arşivle">📥 Arşivle</button>
+                <button class="kart-dugme arsivden-cikar-dugmesi" type="button" title="Arşivden Çıkar" hidden>📥 Arşivden Çıkar</button>
                 <button class="kart-dugme yildizla-dugmesi" type="button" title="Yıldızla">☆ Yıldızla</button>
                 <button class="kart-dugme takvim-dugmesi" type="button" title="Takvime Ekle">📅 Takvime Ekle</button>
                 <button class="kart-dugme kopyala-dugmesi" type="button" title="Özeti Kopyala">📋 Metni kopyala</button>
@@ -272,6 +276,6 @@
     </dialog>
 
     <div class="bildirimler" id="bildirimler" aria-live="polite" aria-atomic="true"></div>
-    <script src="/app.js?v=6" defer></script>
+    <script src="/app.js?v=7" defer></script>
   </body>
 </html>

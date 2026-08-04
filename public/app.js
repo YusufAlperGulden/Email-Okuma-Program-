@@ -145,7 +145,7 @@
 
   function counts() {
     const all = state.emails;
-    const active = all.filter(email => email.status !== "done" && !isSnoozedForLater(email));
+    const active = all.filter(email => email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
     return {
       today: all.filter(email => isToday(email.receivedAt) && !isSnoozedForLater(email)).length,
       action: active.filter(email => email.category === "action").length,
@@ -154,7 +154,9 @@
       all: active.length,
       done: all.filter(email => email.status === "done").length,
       snoozed: all.filter(email => isSnoozedForLater(email)).length,
-      starred: all.filter(email => email.labels && email.labels.includes("STARRED")).length
+      starred: all.filter(email => email.labels && email.labels.includes("STARRED")).length,
+        archived: all.filter(email => email.status === "archived").length,
+        trashed: all.filter(email => email.status === "trashed").length
     };
   }
 
@@ -188,10 +190,12 @@
     let emails = [...state.emails];
     if (state.activeFilter === "today") emails = emails.filter(email => isToday(email.receivedAt) && !isSnoozedForLater(email));
     else if (state.activeFilter === "done") emails = emails.filter(email => email.status === "done");
+      else if (state.activeFilter === "archived") emails = emails.filter(email => email.status === "archived");
+      else if (state.activeFilter === "trashed") emails = emails.filter(email => email.status === "trashed");
     else if (state.activeFilter === "snoozed") emails = emails.filter(email => isSnoozedForLater(email));
       else if (state.activeFilter === "starred") emails = emails.filter(email => email.labels && email.labels.includes("STARRED"));
-    else if (state.activeFilter !== "all") emails = emails.filter(email => email.category === state.activeFilter && email.status !== "done" && !isSnoozedForLater(email));
-    else emails = emails.filter(email => email.status !== "done" && !isSnoozedForLater(email));
+    else if (state.activeFilter !== "all") emails = emails.filter(email => email.category === state.activeFilter && email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
+    else emails = emails.filter(email => email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
     const query = state.query.trim().toLocaleLowerCase("tr-TR");
     if (query) emails = emails.filter(email => [email.sender, email.subject, email.summary, email.importanceReason, email.action].join(" ").toLocaleLowerCase("tr-TR").includes(query));
     const order = { action: 0, followup: 1, info: 2 };
@@ -209,6 +213,8 @@
     $("#tumSayisi").textContent = c.all; $("#filtreAksiyonSayisi").textContent = c.action; $("#filtreTakipSayisi").textContent = c.followup;
     if ($("#filtreErtelenenSayisi")) $("#filtreErtelenenSayisi").textContent = c.snoozed;
     if ($("#filtreYildizliSayisi")) $("#filtreYildizliSayisi").textContent = c.starred;
+      if ($("#filtreArsivSayisi")) $("#filtreArsivSayisi").textContent = c.archived;
+      if ($("#filtreSilinenSayisi")) $("#filtreSilinenSayisi").textContent = c.trashed;
   }
 
   function renderFocus() {
@@ -295,14 +301,23 @@
       if (card.dataset.priority === "action") prioText = "âš ï¸ " + prioText;
       
       $(".avatar", card).textContent = firstLetters(email.sender); $(".gonderen", card).textContent = email.sender; $(".zaman", card).textContent = relativeTime(email.receivedAt);
-      $(".oncelik-etiketi", card).textContent = prioText; $(".durum-etiketi", card).textContent = email.status === "done" ? "TamamlandÄ±" : categoryLabel(email.category);
+      $(".oncelik-etiketi", card).textContent = prioText; $(".durum-etiketi", card).textContent = email.status === "done" ? "TamamlandÄ±" : (email.status === "archived" ? "ArÅŸivlendi" : (email.status === "trashed" ? "Ã‡Ã¶p Kutusunda" : categoryLabel(email.category)));
       $(".konu", card).textContent = email.subject; $(".ozet", card).textContent = email.summary; $(".neden", card).textContent = email.importanceReason; $(".aksiyon-metni", card).textContent = email.action;
       const complete = $(".tamamla-dugmesi", card); const snooze = $(".ertele-dugmesi", card); const reply = $(".cevapla-dugmesi", card);
-      if (email.status === "done") { complete.hidden = true; snooze.hidden = true; if (reply) reply.hidden = true; const b1 = $(".sil-dugmesi", card); if (b1) b1.hidden = true; const b2 = $(".arsivle-dugmesi", card); if (b2) b2.hidden = true; const b3 = $(".yildizla-dugmesi", card); if (b3) b3.hidden = true; const b4 = $(".takvim-dugmesi", card); if (b4) b4.hidden = true; const b5 = $(".kopyala-dugmesi", card); if (b5) b5.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayÄ± aÃ§ â†—"; }
+      if (email.status === "done" || email.status === "archived" || email.status === "trashed") { complete.hidden = true; snooze.hidden = true; if (reply) reply.hidden = true; const b1 = $(".sil-dugmesi", card); if (b1) b1.hidden = true; const b2 = $(".arsivle-dugmesi", card); if (b2) b2.hidden = true; const b3 = $(".yildizla-dugmesi", card); if (b3) b3.hidden = true; const b4 = $(".takvim-dugmesi", card); if (b4) b4.hidden = true; const b5 = $(".kopyala-dugmesi", card); if (b5) b5.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayÄ± aÃ§ â†—"; }
+        const arsivdenCikar = $(".arsivden-cikar-dugmesi", card);
+        const coptenCikar = $(".copten-cikar-dugmesi", card);
+        if (arsivdenCikar) arsivdenCikar.hidden = email.status !== "archived";
+        if (coptenCikar) coptenCikar.hidden = email.status !== "trashed";
+            const isStarred = email.labels && email.labels.includes("STARRED");
             const starButton = $(".yildizla-dugmesi", card);
       if (starButton) {
-        const isStarred = email.labels && email.labels.includes("STARRED");
         starButton.textContent = isStarred ? "\u2b50 Y\u0131ld\u0131zland\u0131" : "\u2606 Y\u0131ld\u0131zla";
+      }
+      const topStar = $(".yildiz-ikonu", card);
+      if (topStar) {
+        topStar.textContent = isStarred ? "\u2605" : "\u2606";
+        topStar.style.color = isStarred ? "#c09a06" : "var(--muted)";
       }
       fragment.append(card);
     }
@@ -331,7 +346,7 @@
   
     async function openReply(id) {
       const email = state.emails.find(item => item.id === id); if (!email) return;
-      if (state.isDemo) { notify("Demo modunda e-posta yanýtlanamaz.", "uyari"); return; }
+      if (state.isDemo) { notify("Demo modunda e-posta yanÄ±tlanamaz.", "uyari"); return; }
       let to = email.sender || "";
       const match = to.match(/<([^>]+)>/);
       if (match) to = match[1];
@@ -343,7 +358,7 @@
 
     async function actionApi(id, endpoint, successMsg, failMsg, button) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
-    if (state.isDemo) { notify("Demo modunda bu iþlem yapýlamaz.", "uyari"); return; }
+    if (state.isDemo) { notify("Demo modunda bu iÅŸlem yapÄ±lamaz.", "uyari"); return; }
     
     let originalHtml = "";
     if (button) {
@@ -397,13 +412,13 @@
 
   async function aiReply(id, button) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
-    if (state.isDemo) { notify("Demo modunda yapay zeka yanýtý kullanýlamaz.", "uyari"); return; }
+    if (state.isDemo) { notify("Demo modunda yapay zeka yanÄ±tÄ± kullanÄ±lamaz.", "uyari"); return; }
     const originalText = button.textContent;
     button.textContent = "Uretiliyor...";
     button.disabled = true;
     try {
-      const data = await request(`/api/emails/${encodeURIComponent(id)}/generate-reply`, { method: "POST", body: JSON.stringify({ tone: "Profesyonel bir dille kýsa bir yanýt" }) });
-      if (!data || !data.replyText) throw new Error("Yanýt alinamadi");
+      const data = await request(`/api/emails/${encodeURIComponent(id)}/generate-reply`, { method: "POST", body: JSON.stringify({ tone: "Profesyonel bir dille kÄ±sa bir yanÄ±t" }) });
+      if (!data || !data.replyText) throw new Error("YanÄ±t alinamadi");
       let to = email.sender || "";
       const match = to.match(/<([^>]+)>/);
       if (match) to = match[1];
@@ -411,8 +426,8 @@
       if (!subject.toLowerCase().startsWith("re:")) subject = "Re: " + subject;
       const url = `https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(data.replyText)}`;
       window.open(url, "_blank", "noopener,noreferrer");
-      notify("Yapay zeka yanýtý taslak olarak açýldý.", "basari");
-    } catch (_) { notify("Yapay zeka yanýtý üretilemedi.", "uyari"); }
+      notify("Yapay zeka yanÄ±tÄ± taslak olarak aÃ§Ä±ldÄ±.", "basari");
+    } catch (_) { notify("Yapay zeka yanÄ±tÄ± Ã¼retilemedi.", "uyari"); }
     finally { button.textContent = originalText; button.disabled = false; }
   }
 
@@ -425,7 +440,7 @@
   function copySummary(id) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
     const text = "Konu: " + email.subject + "\nOzet: " + email.summary + "\nAksiyon: " + email.action;
-    navigator.clipboard.writeText(text).then(() => notify("Özet kopyalandý.", "basari")).catch(() => notify("Kopyalanamadý.", "uyari"));
+    navigator.clipboard.writeText(text).then(() => notify("Ã–zet kopyalandÄ±.", "basari")).catch(() => notify("KopyalanamadÄ±.", "uyari"));
   }
 
   function defaultSnoozeValue() { const date = new Date(Date.now() + 24 * 60 * 60 * 1000); date.setMinutes(0, 0, 0); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
@@ -755,7 +770,7 @@
     $$(".filtre").forEach(button => button.addEventListener("click", () => { state.activeFilter = button.dataset.filtre; render(); }));
     $$(".istatistik-karti").forEach(card => { const change = () => { state.activeFilter = card.dataset.filtre; render(); document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" }); }; card.addEventListener("click", change); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); change(); } }); });
     elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
-    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taþýndý.", "Çöp kutusuna taþýnamadý.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arþive kaldýrýldý.", "Arþivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yýldýzlandý.", "Yýldýzlanamadý.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
+    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta Ã§Ã¶pe taÅŸÄ±ndÄ±.", "Ã‡Ã¶p kutusuna taÅŸÄ±namadÄ±.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arÅŸive kaldÄ±rÄ±ldÄ±.", "ArÅŸivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "YÄ±ldÄ±zlandÄ±.", "YÄ±ldÄ±zlanamadÄ±.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arÅŸivden Ã§Ä±karÄ±ldÄ±.", "Ä°ÅŸlem baÅŸarÄ±sÄ±z.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta Ã§Ã¶p kutusundan Ã§Ä±karÄ±ldÄ±.", "Ä°ÅŸlem baÅŸarÄ±sÄ±z.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
@@ -821,10 +836,10 @@
 
   function randomizeSlogan() {
     const slogans = [
-      "Bugün gerçekten <em>önemli</em> olanlar.",
+      "BugÃ¼n gerÃ§ekten <em>Ã¶nemli</em> olanlar.",
       "Gelen kutunuzda kontrol <em>sizde</em>.",
-      "Sadece <em>odaklanmanýz</em> gerekenler.",
-      "Zamanýnýzý <em>geri</em> kazanýn."
+      "Sadece <em>odaklanmanÄ±z</em> gerekenler.",
+      "ZamanÄ±nÄ±zÄ± <em>geri</em> kazanÄ±n."
     ];
     const baslik = document.getElementById("baslik");
     if (baslik) {
