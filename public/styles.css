@@ -152,3 +152,30 @@ body.koyu #ayarProfilTemizle:hover { background: #351a20; color: #ffe0e4; border
   border-radius: 50%;
   animation: donmeAnimasyonu 1s linear infinite;
 }
+
+.yildiz-ikonu {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: transform 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+}
+.yildiz-ikonu:hover {
+  transform: scale(1.15);
+  color: #c09a06;
+}
+.yildiz-ikonu.yildizli {
+  color: #c09a06;
+}
+.koyu .yildiz-ikonu.yildizli {
+  color: #f7cf45;
+}
+.koyu .yildiz-ikonu:hover {
+  color: #f7cf45;
+}
+
