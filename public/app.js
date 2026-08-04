@@ -819,6 +819,19 @@
     });
   }
 
-  async function boot() { initialiseTheme(); bindEvents(); const allowed = await checkAuth(); if (allowed) await loadDashboard(); }
+  function randomizeSlogan() {
+    const slogans = [
+      "Bugün gerçekten <em>önemli</em> olanlar.",
+      "Gelen kutunuzda kontrol <em>sizde</em>.",
+      "Sadece <em>odaklanmanýz</em> gerekenler.",
+      "Zamanýnýzý <em>geri</em> kazanýn."
+    ];
+    const baslik = document.getElementById("baslik");
+    if (baslik) {
+      baslik.innerHTML = slogans[Math.floor(Math.random() * slogans.length)];
+    }
+  }
+
+  async function boot() { randomizeSlogan(); initialiseTheme(); bindEvents(); const allowed = await checkAuth(); if (allowed) await loadDashboard(); }
   boot();
 })();
