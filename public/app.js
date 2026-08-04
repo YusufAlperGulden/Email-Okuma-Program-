@@ -360,7 +360,14 @@
              tagEl.style.borderRadius = "12px";
              tagEl.style.fontSize = "0.75rem";
              tagEl.style.marginLeft = "4px";
+             tagEl.style.cursor = "pointer";
              tagEl.textContent = t.name;
+             tagEl.addEventListener("click", (e) => {
+               e.stopPropagation();
+               state.activeFilter = "tag-" + t.id;
+               render();
+               document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" });
+             });
              tagArea.appendChild(tagEl);
           }
         });
