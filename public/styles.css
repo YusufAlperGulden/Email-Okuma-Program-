@@ -120,4 +120,8 @@ body.koyu { --zemin: #101729; --yuzey: #172136; --yuzey-soluk: #202d46; --metin:
 .profil-secim-alani { display: flex; flex-direction: column; align-items: center; margin-bottom: .85rem; width: 100%; }
 .profil-secim-dugmeler { display: flex; gap: 10px; margin-bottom: 10px; width: 100%; }
 .profil-secim-dugmeler input[type="file"] { flex: 1; min-width: 0; margin: 0; }
+#ayarProfilTemizle { color: #b53a4e; border-color: #e5b0b9; }
+#ayarProfilTemizle:hover { background: #fff4f6; color: #9a2b3e; border-color: #c98a95; }
+body.koyu #ayarProfilTemizle { color: #ffbdc7; border-color: #7a3b45; }
+body.koyu #ayarProfilTemizle:hover { background: #351a20; color: #ffe0e4; border-color: #984c58; }
 .profil-onizleme { width: 256px; height: 256px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 1px solid var(--cizgi); box-shadow: var(--golge); }
