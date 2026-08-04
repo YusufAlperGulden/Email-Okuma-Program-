@@ -229,7 +229,8 @@ async function route(req, res) {
   if (method === 'PATCH' && pathname === '/api/account') return updateAccount(req, res, session);
   if (method === 'DELETE' && pathname === '/api/account') return deleteAccount(req, res, session);
   if (method === 'GET' && pathname === '/api/cleanup-ghost') {
-    const r = await sql("DELETE FROM app_users WHERE email = 'yusufalperguelden@gmail.com' OR username = 'yusufalperguelden@gmail.com' OR username_key = 'yusufalperguelden@gmail.com'");
+    const email = 'yusufalpergulden@gmail.com';
+    const r = await sql(`DELETE FROM app_users WHERE email = $1 OR username = $1 OR username_key = $1`, [email]);
     return sendJson(res, 200, { ok: true, deleted: r.rowCount });
   }
   if (method === 'GET' && pathname === '/auth/google') return beginGoogleOAuth(requestUrl, res, session);
