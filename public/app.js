@@ -273,8 +273,14 @@
     for (const email of emails) {
       const card = elements.template.content.firstElementChild.cloneNode(true);
       card.dataset.id = email.id; card.dataset.kategori = email.category; card.dataset.durum = email.status;
+      const prioStr = String(email.priority || "").toLowerCase();
+      card.dataset.priority = prioStr.includes("urgent") ? "urgent" : (prioStr.includes("action") ? "action" : "low");
+      
+      let prioText = email.priority || categoryLabel(email.category);
+      if (card.dataset.priority === "action") prioText = "⚠️ " + prioText;
+      
       $(".avatar", card).textContent = firstLetters(email.sender); $(".gonderen", card).textContent = email.sender; $(".zaman", card).textContent = relativeTime(email.receivedAt);
-      $(".oncelik-etiketi", card).textContent = email.priority || categoryLabel(email.category); $(".durum-etiketi", card).textContent = email.status === "done" ? "Tamamlandı" : categoryLabel(email.category);
+      $(".oncelik-etiketi", card).textContent = prioText; $(".durum-etiketi", card).textContent = email.status === "done" ? "Tamamlandı" : categoryLabel(email.category);
       $(".konu", card).textContent = email.subject; $(".ozet", card).textContent = email.summary; $(".neden", card).textContent = email.importanceReason; $(".aksiyon-metni", card).textContent = email.action;
       const complete = $(".tamamla-dugmesi", card); const snooze = $(".ertele-dugmesi", card);
       if (email.status === "done") { complete.hidden = true; snooze.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayı aç ↗"; }

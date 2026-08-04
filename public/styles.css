@@ -106,3 +106,11 @@ body.koyu { --zemin: #101729; --yuzey: #172136; --yuzey-soluk: #202d46; --metin:
 @keyframes donme { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .donen-ikon { display: inline-block; animation: donme 1s linear infinite; }
 
+
+.posta-karti[data-priority="action"] .oncelik-etiketi { background: #ffe7eb; color: #bd3248; }
+.posta-karti[data-priority="low"] .oncelik-etiketi { background: #fff0dc; color: #ae6214; }
+.posta-karti[data-priority="urgent"] .oncelik-etiketi { background: #fee2e2; color: #b91c1c; }
+.koyu .posta-karti[data-priority="action"] .oncelik-etiketi { background: #542b38; color: #ffc0cb; }
+.koyu .posta-karti[data-priority="low"] .oncelik-etiketi { background: #54381c; color: #ffd49e; }
+.koyu .posta-karti[data-priority="urgent"] .oncelik-etiketi { background: #7f1d1d; color: #fecaca; }
+
