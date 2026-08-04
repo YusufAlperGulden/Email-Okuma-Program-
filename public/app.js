@@ -344,6 +344,7 @@
     async function actionApi(id, endpoint, successMsg, failMsg, button) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
     if (state.isDemo) { notify("Demo modunda bu islem yapilamaz.", "uyari"); return; }
+    
     let originalHtml = "";
     if (button) {
       originalHtml = button.innerHTML;
@@ -352,9 +353,26 @@
       button.style.opacity = "0.7";
       button.style.cursor = "wait";
     }
+
+    let prevStatus = email.status;
+    let prevLabels = [...(email.labels || [])];
+
+    if (endpoint === 'trash' || endpoint === 'archive') { 
+      email.status = "done"; 
+      render(); 
+    } else if (endpoint === 'star') {
+      email.labels = email.labels || [];
+      if (email.labels.includes('STARRED')) {
+          email.labels = email.labels.filter(l => l !== 'STARRED');
+      } else {
+          email.labels.push('STARRED');
+      }
+      render();
+    }
+
     try {
       const res = await request(`/api/emails/${encodeURIComponent(id)}/${endpoint}`, { method: "POST" });
-      if (endpoint === 'trash' || endpoint === 'archive') { email.status = "done"; render(); }
+      
       if (endpoint === 'star' && res && res.email) {
         email.labels = res.email.labels || [];
         render();
@@ -363,6 +381,9 @@
       }
       notify(successMsg, "basari");
     } catch (_) { 
+      email.status = prevStatus;
+      email.labels = prevLabels;
+      render();
       notify(failMsg, "uyari"); 
     } finally {
       if (button && document.body.contains(button)) {
