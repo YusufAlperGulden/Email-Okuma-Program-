@@ -1042,7 +1042,7 @@ function localAnalysis(email) {
   const low = newsletterWords.some((word) => text.includes(word));
   const priority = low ? 'low' : hasUrgency ? 'urgent' : needsReply ? 'action_required' : 'normal';
   return {
-    summary: truncate(email.snippet || email.bodyText || 'İçerik bulunamadı.', 500),
+    summary: email.bodyText || email.snippet || 'İçerik bulunamadı.',
     priority,
     reason: low ? 'Bülten veya kampanya niteliğinde görünüyor.' : hasUrgency ? 'Acil/son tarih ile ilgili ifadeler içeriyor.' : needsReply ? 'Bir yanıt veya karar bekliyor olabilir.' : 'Bilgi amaçlı e-posta olarak görünüyor.',
     needsReply,
