@@ -251,8 +251,6 @@ async function route(req, res) {
   if (method === 'POST' && trashMatch) return trashEmail(trashMatch[1], req, res, session.userId);
   const starMatch = pathname.match(/^\/api\/emails\/([^/]+)\/star$/);
   if (method === 'POST' && starMatch) return starEmail(starMatch[1], req, res, session.userId);
-  const aiReplyMatch = pathname.match(/^\/api\/emails\/([^/]+)\/generate-reply$/);
-  if (method === 'POST' && aiReplyMatch) return generateAiReply(aiReplyMatch[1], req, res, session.userId);
   const originalMatch = pathname.match(/^\/api\/emails\/([^/]+)\/original$/);
   if (method === 'GET' && originalMatch) return originalUrl(originalMatch[1], res, session.userId);
 
@@ -837,7 +835,37 @@ async function originalUrl(id, res, userId) {
   return sendJson(res, 200, { url: email.originalUrl || gmailOriginalUrl(email.threadId, email.id) });
 }
 
-async function disconnectGoogle(res, userId) {
+async function archiveEmail(id, req, res, userId) {
+    const store = await readStore(userId);
+    const email = store.emails.find((candidate) => candidate.id === id);
+    if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
+    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/modify`, { removeLabelIds: ['INBOX'] });
+    email.status = 'done';
+    email.updatedAt = new Date().toISOString();
+    await writeStore(userId, store, {});
+    return sendJson(res, 200, { ok: true, email: visibleEmail(email) });
+  }
+
+  async function trashEmail(id, req, res, userId) {
+    const store = await readStore(userId);
+    const email = store.emails.find((candidate) => candidate.id === id);
+    if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
+    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/trash`, {});
+    email.status = 'done';
+    email.updatedAt = new Date().toISOString();
+    await writeStore(userId, store, {});
+    return sendJson(res, 200, { ok: true, email: visibleEmail(email) });
+  }
+
+  async function starEmail(id, req, res, userId) {
+    const store = await readStore(userId);
+    const email = store.emails.find((candidate) => candidate.id === id);
+    if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
+    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/modify`, { addLabelIds: ['STARRED'] });
+    return sendJson(res, 200, { ok: true, email: visibleEmail(email) });
+  }
+
+  async function disconnectGoogle(res, userId) {
   const token = await readToken(userId);
   if (token?.refreshToken) {
     // Revocation is best-effort; deleting the encrypted local copy is the
@@ -1056,7 +1084,27 @@ async function gmailRequest(userId, pathname, retry = true) {
   return data;
 }
 
-async function getValidAccessToken(userId) {
+async function gmailPostRequest(userId, pathname, body, retry = true) {
+    const token = await getValidAccessToken(userId);
+    let response = await fetch(`https://gmail.googleapis.com${pathname}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    });
+    if (response.status === 401 && retry) {
+      await refreshAccessToken(userId, true);
+      return gmailPostRequest(userId, pathname, body, false);
+    }
+    if (response.status === 204) return {};
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error('Gmail API error', data);
+      throw new HttpError(502, 'Gmail islemi basarisiz oldu. Lutfen ayarlardan Gmail baglantisini kesip tekrar baglayin (gerekli izinler alinmamis olabilir).', 'gmail_api_error');
+    }
+    return data;
+  }
+
+  async function getValidAccessToken(userId) {
   const token = await readToken(userId);
   if (!token) throw new HttpError(409, 'Önce Gmail hesabınızı bağlayın.', 'gmail_not_connected');
   if (!token.accessToken || token.expiresAt < Date.now() + 30_000) return refreshAccessToken(userId, false);
