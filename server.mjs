@@ -1805,7 +1805,7 @@ async function serveStatic(pathname, res, headOnly) {
     // so a deploy never leaves an old browser UI talking to a new API contract.
     'Cache-Control': ['.html', '.js', '.css', '.webmanifest'].includes(extension) ? 'no-cache' : 'public, max-age=3600',
     'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+    'Content-Security-Policy': "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
   });
   if (!headOnly) res.end(data); else res.end();
 }
