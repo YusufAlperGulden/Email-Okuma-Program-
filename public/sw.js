@@ -1,5 +1,5 @@
-const CACHE_NAME = 'odakposta-v1';
-const DYNAMIC_CACHE = 'odakposta-dynamic-v1';
+const CACHE_NAME = 'odakposta-v2';
+const DYNAMIC_CACHE = 'odakposta-dynamic-v2';
 
 const STATIC_ASSETS = [
   '/',
