@@ -243,6 +243,7 @@ async function route(req, res) {
 
   if (method === 'GET' && pathname === '/api/tags') return getTags(res, session.userId);
   if (method === 'POST' && pathname === '/api/tags') return createTag(req, res, session.userId);
+  if (method === 'DELETE' && pathname === '/api/tags') return deleteAllTags(res, session.userId);
   const tagDeleteMatch = pathname.match(/^\/api\/tags\/([^/]+)$/);
   if (method === 'DELETE' && tagDeleteMatch) return deleteTag(tagDeleteMatch[1], res, session.userId);
   const emailTagMatch = pathname.match(/^\/api\/emails\/([^/]+)\/tags$/);
@@ -825,6 +826,11 @@ async function createTag(req, res, userId) {
 
 async function deleteTag(id, res, userId) {
   await sql('DELETE FROM custom_tags WHERE id = $1 AND user_id = $2', [id, userId]);
+  return sendJson(res, 200, { ok: true });
+}
+
+async function deleteAllTags(res, userId) {
+  await sql('DELETE FROM custom_tags WHERE user_id = $1', [userId]);
   return sendJson(res, 200, { ok: true });
 }
 
