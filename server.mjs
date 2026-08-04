@@ -245,6 +245,14 @@ async function route(req, res) {
   if (method === 'POST' && statusMatch) return updateStatus(statusMatch[1], req, res, session.userId);
   const snoozeMatch = pathname.match(/^\/api\/emails\/([^/]+)\/snooze$/);
   if (method === 'POST' && snoozeMatch) return snoozeEmail(snoozeMatch[1], req, res, session.userId);
+  const archiveMatch = pathname.match(/^\/api\/emails\/([^/]+)\/archive$/);
+  if (method === 'POST' && archiveMatch) return archiveEmail(archiveMatch[1], req, res, session.userId);
+  const trashMatch = pathname.match(/^\/api\/emails\/([^/]+)\/trash$/);
+  if (method === 'POST' && trashMatch) return trashEmail(trashMatch[1], req, res, session.userId);
+  const starMatch = pathname.match(/^\/api\/emails\/([^/]+)\/star$/);
+  if (method === 'POST' && starMatch) return starEmail(starMatch[1], req, res, session.userId);
+  const aiReplyMatch = pathname.match(/^\/api\/emails\/([^/]+)\/generate-reply$/);
+  if (method === 'POST' && aiReplyMatch) return generateAiReply(aiReplyMatch[1], req, res, session.userId);
   const originalMatch = pathname.match(/^\/api\/emails\/([^/]+)\/original$/);
   if (method === 'GET' && originalMatch) return originalUrl(originalMatch[1], res, session.userId);
 
@@ -520,7 +528,7 @@ async function beginGoogleOAuth(url, res, session) {
     client_id: CONFIG.googleClientId,
     redirect_uri: CONFIG.googleRedirectUri,
     response_type: 'code',
-    scope: 'openid email https://www.googleapis.com/auth/gmail.readonly',
+    scope: 'openid email https://www.googleapis.com/auth/gmail.modify',
     access_type: 'offline',
     prompt: 'consent',
     include_granted_scopes: 'true',

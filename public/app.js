@@ -289,8 +289,8 @@
       $(".avatar", card).textContent = firstLetters(email.sender); $(".gonderen", card).textContent = email.sender; $(".zaman", card).textContent = relativeTime(email.receivedAt);
       $(".oncelik-etiketi", card).textContent = prioText; $(".durum-etiketi", card).textContent = email.status === "done" ? "Tamamlandı" : categoryLabel(email.category);
       $(".konu", card).textContent = email.subject; $(".ozet", card).textContent = email.summary; $(".neden", card).textContent = email.importanceReason; $(".aksiyon-metni", card).textContent = email.action;
-      const complete = $(".tamamla-dugmesi", card); const snooze = $(".ertele-dugmesi", card);
-      if (email.status === "done") { complete.hidden = true; snooze.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayı aç ↗"; }
+      const complete = $(".tamamla-dugmesi", card); const snooze = $(".ertele-dugmesi", card); const reply = $(".cevapla-dugmesi", card);
+      if (email.status === "done") { complete.hidden = true; snooze.hidden = true; if (reply) reply.hidden = true; const aidugme = $(".ai-cevapla-dugmesi", card); if (aidugme) aidugme.hidden = true; const kdugme = $(".kart-dugme-grup", card); if (kdugme) kdugme.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayı aç ↗"; }
       fragment.append(card);
     }
     elements.list.append(fragment);
@@ -313,6 +313,62 @@
     if (email.originalUrl) { window.open(email.originalUrl, "_blank", "noopener,noreferrer"); return; }
     try { const data = await request(`/api/emails/${encodeURIComponent(id)}/original`); if (!data?.url) throw new Error("Adres bulunamadı"); window.open(data.url, "_blank", "noopener,noreferrer"); }
     catch (_) { notify("Özgün e-posta şu anda açılamıyor.", "uyari"); }
+  }
+
+  
+    async function openReply(id) {
+      const email = state.emails.find(item => item.id === id); if (!email) return;
+      if (state.isDemo) { notify("Demo modunda e-posta yan�tlanamaz.", "uyari"); return; }
+      let to = email.sender || "";
+      const match = to.match(/<([^>]+)>/);
+      if (match) to = match[1];
+      let subject = email.subject || "";
+      if (!subject.toLowerCase().startsWith("re:")) subject = "Re: " + subject;
+      const url = `https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    async function actionApi(id, endpoint, successMsg, failMsg) {
+    const email = state.emails.find(item => item.id === id); if (!email) return;
+    if (state.isDemo) { notify("Demo modunda bu islem yapilamaz.", "uyari"); return; }
+    try {
+      await request(`/api/emails/${encodeURIComponent(id)}/${endpoint}`, { method: "POST" });
+      if (endpoint === 'trash' || endpoint === 'archive') { email.status = "done"; render(); }
+      notify(successMsg, "basari");
+    } catch (_) { notify(failMsg, "uyari"); }
+  }
+
+  async function aiReply(id, button) {
+    const email = state.emails.find(item => item.id === id); if (!email) return;
+    if (state.isDemo) { notify("Demo modunda yapay zeka yaniti kullanilamaz.", "uyari"); return; }
+    const originalText = button.textContent;
+    button.textContent = "Uretiliyor...";
+    button.disabled = true;
+    try {
+      const data = await request(`/api/emails/${encodeURIComponent(id)}/generate-reply`, { method: "POST", body: JSON.stringify({ tone: "Profesyonel bir dille k�sa bir yan�t" }) });
+      if (!data || !data.replyText) throw new Error("Yan�t alinamadi");
+      let to = email.sender || "";
+      const match = to.match(/<([^>]+)>/);
+      if (match) to = match[1];
+      let subject = email.subject || "";
+      if (!subject.toLowerCase().startsWith("re:")) subject = "Re: " + subject;
+      const url = `https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(data.replyText)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+      notify("Yapay zeka yaniti taslak olarak acildi.", "basari");
+    } catch (_) { notify("Yapay zeka yaniti uretilemedi.", "uyari"); }
+    finally { button.textContent = originalText; button.disabled = false; }
+  }
+
+  function addToCalendar(id) {
+    const email = state.emails.find(item => item.id === id); if (!email) return;
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(email.subject)}&details=${encodeURIComponent(email.summary + "\n\nNeden onemli: " + email.importanceReason)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function copySummary(id) {
+    const email = state.emails.find(item => item.id === id); if (!email) return;
+    const text = "Konu: " + email.subject + "\nOzet: " + email.summary + "\nAksiyon: " + email.action;
+    navigator.clipboard.writeText(text).then(() => notify("Ozet kopyalandi.", "basari")).catch(() => notify("Kopyalanamadi.", "uyari"));
   }
 
   function defaultSnoozeValue() { const date = new Date(Date.now() + 24 * 60 * 60 * 1000); date.setMinutes(0, 0, 0); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
@@ -642,7 +698,7 @@
     $$(".filtre").forEach(button => button.addEventListener("click", () => { state.activeFilter = button.dataset.filtre; render(); }));
     $$(".istatistik-karti").forEach(card => { const change = () => { state.activeFilter = card.dataset.filtre; render(); document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" }); }; card.addEventListener("click", change); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); change(); } }); });
     elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
-    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); });
+    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".ai-cevapla-dugmesi")) aiReply(card.dataset.id, event.target.closest(".ai-cevapla-dugmesi")); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta cobe tasindi.", "Cop kutusuna tasinamadi."); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arsive kaldirildi.", "Arsivlenemedi."); if (event.target.closest(".yildizla-dugmesi")) actionApi(card.dataset.id, "star", "Yildizlandi.", "Yildizlanamadi."); if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
