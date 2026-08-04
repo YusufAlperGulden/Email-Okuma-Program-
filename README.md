@@ -4,7 +4,7 @@ OdakPosta, her kişinin kendi uygulama hesabıyla giriş yapıp kendi Gmail gele
 
 ## Kullanıcı akışı
 
-1. Kişi uygulamada kendi e-posta adresi ve en az 12 karakterlik parolasıyla hesap oluşturur.
+1. Kişi uygulamada kendi e-posta adresi ve en az 8 karakterlik parolasıyla hesap oluşturur.
 2. Bu adresin Gmail adresi olması gerekmez. Hesap e-postası ile bağlanacak Gmail hesabı farklı olabilir.
 3. Gmail bağlantısından önce kişi, verinin şifreli olarak işlenmesi ve yapay zekâ özeti etkinse Gemini'ye gönderilmesi için açık onay verir.
 4. Google'ın açtığı sayfada kendi Gmail hesabını seçer. Her Gmail kimliği yalnızca bir OdakPosta hesabına bağlanabilir.
