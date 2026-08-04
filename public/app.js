@@ -278,6 +278,9 @@
       card.dataset.priority = prioStr.includes("urgent") ? "urgent" : (prioStr.includes("action") ? "action" : "low");
       
       let prioText = email.priority || categoryLabel(email.category);
+      if (typeof prioText === "string") {
+        prioText = prioText.replace(/_/g, " ").split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      }
       if (card.dataset.priority === "action") prioText = "⚠️ " + prioText;
       
       $(".avatar", card).textContent = firstLetters(email.sender); $(".gonderen", card).textContent = email.sender; $(".zaman", card).textContent = relativeTime(email.receivedAt);
