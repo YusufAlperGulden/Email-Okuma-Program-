@@ -349,7 +349,7 @@ async function updateAccount(req, res, session) {
   let nextProfilePicture = user.profile_picture;
   if (requestedUsername !== undefined && requestedUsername.trim().toLowerCase() !== currentUsername.toLowerCase()) {
     nextUsername = normalizeUsername(requestedUsername);
-    if (!nextUsername) throw new HttpError(400, 'Kullanıcı adı 3–32 karakter olmalı; harf, rakam, nokta, alt çizgi veya tire kullanabilirsiniz.', 'invalid_username');
+    if (!nextUsername) throw new HttpError(400, 'Kullanıcı adı 3–32 karakter olmalı; harf, rakam, boşluk, nokta, alt çizgi, tire veya @ işareti kullanabilirsiniz.', 'invalid_username');
     nextUsernameKey = nextUsername.toLowerCase();
   }
   if (requestedProfilePicture !== undefined) {
@@ -1533,7 +1533,7 @@ function normalizeAccountEmail(value) {
 
 function normalizeUsername(value) {
   const username = typeof value === 'string' ? value.trim() : '';
-  if (!/^[\p{L}0-9](?:[\p{L}0-9._ -]{1,30}[\p{L}0-9])$/u.test(username)) return '';
+  if (!/^[\p{L}0-9](?:[\p{L}0-9._ @-]{1,30}[\p{L}0-9])$/u.test(username)) return '';
   return username;
 }
 
