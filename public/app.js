@@ -228,7 +228,7 @@
     if ($("#filtreYildizliSayisi")) $("#filtreYildizliSayisi").textContent = c.starred;
       if ($("#filtreArsivSayisi")) $("#filtreArsivSayisi").textContent = c.archived;
       if ($("#filtreSilinenSayisi")) $("#filtreSilinenSayisi").textContent = c.trashed;
-      if ($("#silinenSayisi")) $("#silinenSayisi").textContent = c.trashed;
+      if ($("#ertelenenSayisi")) $("#ertelenenSayisi").textContent = c.snoozed;
   }
 
   function renderFocus() {
