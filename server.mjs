@@ -1533,7 +1533,7 @@ function normalizeAccountEmail(value) {
 
 function normalizeUsername(value) {
   const username = typeof value === 'string' ? value.trim() : '';
-  if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{1,30}[A-Za-z0-9])$/.test(username)) return '';
+  if (!/^[\p{L}0-9](?:[\p{L}0-9._ -]{1,30}[\p{L}0-9])$/u.test(username)) return '';
   return username;
 }
 
