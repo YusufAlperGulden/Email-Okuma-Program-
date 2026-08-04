@@ -316,7 +316,7 @@
 
   async function sync() {
     if (!state.connection?.gmailConnected) { notify("Önce kendi Gmail hesabını bağlamalısın.", "uyari"); return; }
-    elements.sync.disabled = true; elements.sync.innerHTML = '<span aria-hidden="true">↻</span> Yenileniyor…';
+    elements.sync.disabled = true; elements.sync.innerHTML = '<span aria-hidden="true" class="donen-ikon">↻</span> Yenileniyor...';
     try { await request("/api/sync", { method: "POST", body: "{}" }); await loadDashboard(); notify("Gelen kutusu yenilendi.", "basari"); }
     catch (error) { notify(error.status === 401 ? "Yenilemek için giriş yapmalısın." : error.message || "E-postalar yenilenemedi.", "uyari"); if (error.status === 401) showLogin(); }
     finally { elements.sync.disabled = false; elements.sync.innerHTML = '<span aria-hidden="true">↻</span> Postaları yenile'; }
