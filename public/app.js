@@ -225,6 +225,8 @@
     $("#bilgiAlt").textContent = values.info ? "okunabilir" : "bilgi postası yok";
     $("#tumSayisi").textContent = c.all; $("#filtreAksiyonSayisi").textContent = c.action;
     if ($("#filtreErtelenenSayisi")) $("#filtreErtelenenSayisi").textContent = c.snoozed;
+      if ($("#filtreBilgiSayisi")) $("#filtreBilgiSayisi").textContent = c.info;
+      if ($("#filtreTamamlananSayisi")) $("#filtreTamamlananSayisi").textContent = c.done;
     if ($("#filtreYildizliSayisi")) $("#filtreYildizliSayisi").textContent = c.starred;
       if ($("#filtreArsivSayisi")) $("#filtreArsivSayisi").textContent = c.archived;
       if ($("#filtreSilinenSayisi")) $("#filtreSilinenSayisi").textContent = c.trashed;
