@@ -153,7 +153,8 @@
       info: active.filter(email => email.category === "info").length,
       all: active.length,
       done: all.filter(email => email.status === "done").length,
-      snoozed: all.filter(email => isSnoozedForLater(email)).length
+      snoozed: all.filter(email => isSnoozedForLater(email)).length,
+      starred: all.filter(email => email.labels && email.labels.includes("STARRED")).length
     };
   }
 
@@ -188,6 +189,7 @@
     if (state.activeFilter === "today") emails = emails.filter(email => isToday(email.receivedAt) && !isSnoozedForLater(email));
     else if (state.activeFilter === "done") emails = emails.filter(email => email.status === "done");
     else if (state.activeFilter === "snoozed") emails = emails.filter(email => isSnoozedForLater(email));
+      else if (state.activeFilter === "starred") emails = emails.filter(email => email.labels && email.labels.includes("STARRED"));
     else if (state.activeFilter !== "all") emails = emails.filter(email => email.category === state.activeFilter && email.status !== "done" && !isSnoozedForLater(email));
     else emails = emails.filter(email => email.status !== "done" && !isSnoozedForLater(email));
     const query = state.query.trim().toLocaleLowerCase("tr-TR");
@@ -206,6 +208,7 @@
     $("#bilgiAlt").textContent = values.info ? "okunabilir" : "bilgi postası yok";
     $("#tumSayisi").textContent = c.all; $("#filtreAksiyonSayisi").textContent = c.action; $("#filtreTakipSayisi").textContent = c.followup;
     if ($("#filtreErtelenenSayisi")) $("#filtreErtelenenSayisi").textContent = c.snoozed;
+    if ($("#filtreYildizliSayisi")) $("#filtreYildizliSayisi").textContent = c.starred;
   }
 
   function renderFocus() {
@@ -291,6 +294,11 @@
       $(".konu", card).textContent = email.subject; $(".ozet", card).textContent = email.summary; $(".neden", card).textContent = email.importanceReason; $(".aksiyon-metni", card).textContent = email.action;
       const complete = $(".tamamla-dugmesi", card); const snooze = $(".ertele-dugmesi", card); const reply = $(".cevapla-dugmesi", card);
       if (email.status === "done") { complete.hidden = true; snooze.hidden = true; if (reply) reply.hidden = true; const kdugme = $(".kart-dugme-grup", card); if (kdugme) kdugme.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayı aç ↗"; }
+            const starButton = $(".yildizla-dugmesi", card);
+      if (starButton) {
+        const isStarred = email.labels && email.labels.includes("STARRED");
+        starButton.textContent = isStarred ? "\u2b50 Y\u0131ld\u0131zland\u0131" : "\u2606 Y\u0131ld\u0131zla";
+      }
       fragment.append(card);
     }
     elements.list.append(fragment);
@@ -332,8 +340,14 @@
     const email = state.emails.find(item => item.id === id); if (!email) return;
     if (state.isDemo) { notify("Demo modunda bu islem yapilamaz.", "uyari"); return; }
     try {
-      await request(`/api/emails/${encodeURIComponent(id)}/${endpoint}`, { method: "POST" });
+      const res = await request(`/api/emails/${encodeURIComponent(id)}/${endpoint}`, { method: "POST" });
       if (endpoint === 'trash' || endpoint === 'archive') { email.status = "done"; render(); }
+      if (endpoint === 'star' && res && res.email) {
+        email.labels = res.email.labels || [];
+        render();
+        notify(res.isStarred ? successMsg : "Y\u0131ld\u0131z kald\u0131r\u0131ld\u0131.", "basari");
+        return;
+      }
       notify(successMsg, "basari");
     } catch (_) { notify(failMsg, "uyari"); }
   }

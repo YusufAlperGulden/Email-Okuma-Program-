@@ -861,8 +861,21 @@ async function archiveEmail(id, req, res, userId) {
     const store = await readStore(userId);
     const email = store.emails.find((candidate) => candidate.id === id);
     if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
-    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/modify`, { addLabelIds: ['STARRED'] });
-    return sendJson(res, 200, { ok: true, email: visibleEmail(email) });
+    
+    if (!email.labels) email.labels = [];
+    const isStarred = email.labels.includes('STARRED');
+    
+    if (isStarred) {
+      await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/modify`, { removeLabelIds: ['STARRED'] });
+      email.labels = email.labels.filter(l => l !== 'STARRED');
+    } else {
+      await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/modify`, { addLabelIds: ['STARRED'] });
+      email.labels.push('STARRED');
+    }
+    
+    email.updatedAt = new Date().toISOString();
+    await writeStore(userId, store, {});
+    return sendJson(res, 200, { ok: true, email: visibleEmail(email), isStarred: !isStarred });
   }
 
   async function disconnectGoogle(res, userId) {
