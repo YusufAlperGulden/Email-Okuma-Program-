@@ -241,6 +241,13 @@ async function route(req, res) {
   if (method === 'POST' && pathname === '/api/sync') return sync(req, res, session.userId);
   if (method === 'POST' && pathname === '/api/disconnect') return disconnectGoogle(res, session.userId);
 
+  if (method === 'GET' && pathname === '/api/tags') return getTags(res, session.userId);
+  if (method === 'POST' && pathname === '/api/tags') return createTag(req, res, session.userId);
+  const tagDeleteMatch = pathname.match(/^\/api\/tags\/([^/]+)$/);
+  if (method === 'DELETE' && tagDeleteMatch) return deleteTag(tagDeleteMatch[1], res, session.userId);
+  const emailTagMatch = pathname.match(/^\/api\/emails\/([^/]+)\/tags$/);
+  if (method === 'POST' && emailTagMatch) return toggleEmailTag(emailTagMatch[1], req, res, session.userId);
+
   const statusMatch = pathname.match(/^\/api\/emails\/([^/]+)\/status$/);
   if (method === 'POST' && statusMatch) return updateStatus(statusMatch[1], req, res, session.userId);
   const snoozeMatch = pathname.match(/^\/api\/emails\/([^/]+)\/snooze$/);
@@ -618,8 +625,10 @@ async function dashboard(res, userId) {
   const store = await readStore(userId);
   const connection = await gmailConnectionMeta(userId);
   const emails = visibleEmails(store.emails);
+  const tagsResult = await sql('SELECT id, name, color FROM custom_tags WHERE user_id = $1 ORDER BY created_at ASC', [userId]);
   return sendJson(res, 200, {
     emails,
+    tags: tagsResult.rows,
     stats: statsFor(emails),
     connection: {
       gmailConnected: Boolean(connection),
@@ -799,6 +808,40 @@ async function syncGmail(userId, { limit, force }) {
       lastAnalysisWarning: store.lastAnalysisWarning
     }
   };
+}
+
+async function getTags(res, userId) {
+  const result = await sql('SELECT id, name, color FROM custom_tags WHERE user_id = $1 ORDER BY created_at ASC', [userId]);
+  return sendJson(res, 200, { tags: result.rows });
+}
+
+async function createTag(req, res, userId) {
+  const body = await readJson(req);
+  if (!body.name || !body.color) throw new HttpError(400, 'İsim ve renk gereklidir.', 'missing_tag_info');
+  const id = randomUUID();
+  await sql('INSERT INTO custom_tags (id, user_id, name, color) VALUES ($1, $2, $3, $4)', [id, userId, body.name, body.color]);
+  return sendJson(res, 200, { id, name: body.name, color: body.color });
+}
+
+async function deleteTag(id, res, userId) {
+  await sql('DELETE FROM custom_tags WHERE id = $1 AND user_id = $2', [id, userId]);
+  return sendJson(res, 200, { ok: true });
+}
+
+async function toggleEmailTag(emailId, req, res, userId) {
+  const body = await readJson(req);
+  const tagId = body.tagId;
+  if (!tagId) throw new HttpError(400, 'Tag ID gerekli.', 'missing_tag_id');
+  
+  const existing = await sql('SELECT 1 FROM email_tags WHERE user_id = $1 AND gmail_message_id = $2 AND tag_id = $3', [userId, emailId, tagId]);
+  let added = false;
+  if (existing.rows.length > 0) {
+    await sql('DELETE FROM email_tags WHERE user_id = $1 AND gmail_message_id = $2 AND tag_id = $3', [userId, emailId, tagId]);
+  } else {
+    await sql('INSERT INTO email_tags (user_id, gmail_message_id, tag_id) VALUES ($1, $2, $3)', [userId, emailId, tagId]);
+    added = true;
+  }
+  return sendJson(res, 200, { ok: true, added });
 }
 
 async function updateStatus(id, req, res, userId) {
@@ -1250,15 +1293,21 @@ async function connectedUserIds() {
 
 async function readStore(userId) {
   requireEncryption();
-  const [syncResult, emailResult] = await Promise.all([
+  const [syncResult, emailResult, tagResult] = await Promise.all([
     sql('SELECT last_sync_at, last_sync_error, last_analysis_warning, fallback_count FROM sync_states WHERE user_id = $1', [userId]),
     sql(
       `SELECT gmail_message_id, encrypted_payload, status, snoozed_until, received_at, analyzed_at, analysis_source, gemini_attempted_at
          FROM email_records
         WHERE user_id = $1`,
       [userId]
-    )
+    ),
+    sql('SELECT gmail_message_id, tag_id FROM email_tags WHERE user_id = $1', [userId])
   ]);
+  const tagMap = new Map();
+  for (const row of tagResult.rows) {
+    if (!tagMap.has(row.gmail_message_id)) tagMap.set(row.gmail_message_id, []);
+    tagMap.get(row.gmail_message_id).push(row.tag_id);
+  }
   const emails = [];
   try {
     for (const row of emailResult.rows) {
@@ -1274,6 +1323,7 @@ async function readStore(userId) {
       // v1 records might contain raw message text. Do not carry it forward:
       // the next write upgrades the record to a summary-only encrypted payload.
       delete email.bodyText;
+      email.tags = tagMap.get(email.id) || [];
       emails.push(email);
     }
   } catch (error) {
@@ -1390,8 +1440,13 @@ async function initializeDatabase() {
       });
       databaseKind = 'pglite';
     } else {
+      let connStr = CONFIG.databaseUrl;
+      if (connStr.includes('sslmode=require') && !connStr.includes('uselibpqcompat=true')) {
+        connStr = connStr.replace('sslmode=require', 'uselibpqcompat=true&sslmode=require');
+      }
+      
       const options = {
-        connectionString: CONFIG.databaseUrl,
+        connectionString: connStr,
         max: 8,
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 10_000
@@ -1478,6 +1533,19 @@ async function initializeDatabase() {
          last_analysis_warning TEXT,
          fallback_count INTEGER NOT NULL DEFAULT 0,
          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+      `CREATE TABLE IF NOT EXISTS custom_tags (
+         id TEXT PRIMARY KEY,
+         user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+         name TEXT NOT NULL,
+         color TEXT NOT NULL,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+      `CREATE TABLE IF NOT EXISTS email_tags (
+         user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+         gmail_message_id TEXT NOT NULL,
+         tag_id TEXT NOT NULL REFERENCES custom_tags(id) ON DELETE CASCADE,
+         PRIMARY KEY (user_id, gmail_message_id, tag_id)
        )`
     ];
     for (const statement of schema) await database.query(statement);
