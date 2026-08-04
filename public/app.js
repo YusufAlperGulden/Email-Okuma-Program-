@@ -341,9 +341,17 @@
       window.open(url, "_blank", "noopener,noreferrer");
     }
 
-    async function actionApi(id, endpoint, successMsg, failMsg) {
+    async function actionApi(id, endpoint, successMsg, failMsg, button) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
     if (state.isDemo) { notify("Demo modunda bu islem yapilamaz.", "uyari"); return; }
+    let originalHtml = "";
+    if (button) {
+      originalHtml = button.innerHTML;
+      button.disabled = true;
+      button.textContent = "L\u00fctfen bekleyin...";
+      button.style.opacity = "0.7";
+      button.style.cursor = "wait";
+    }
     try {
       const res = await request(`/api/emails/${encodeURIComponent(id)}/${endpoint}`, { method: "POST" });
       if (endpoint === 'trash' || endpoint === 'archive') { email.status = "done"; render(); }
@@ -354,7 +362,16 @@
         return;
       }
       notify(successMsg, "basari");
-    } catch (_) { notify(failMsg, "uyari"); }
+    } catch (_) { 
+      notify(failMsg, "uyari"); 
+    } finally {
+      if (button && document.body.contains(button)) {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+        button.style.opacity = "";
+        button.style.cursor = "";
+      }
+    }
   }
 
   async function aiReply(id, button) {
@@ -717,7 +734,7 @@
     $$(".filtre").forEach(button => button.addEventListener("click", () => { state.activeFilter = button.dataset.filtre; render(); }));
     $$(".istatistik-karti").forEach(card => { const change = () => { state.activeFilter = card.dataset.filtre; render(); document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" }); }; card.addEventListener("click", change); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); change(); } }); });
     elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
-    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta cobe tasindi.", "Cop kutusuna tasinamadi."); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arsive kaldirildi.", "Arsivlenemedi."); if (event.target.closest(".yildizla-dugmesi")) actionApi(card.dataset.id, "star", "Yildizlandi.", "Yildizlanamadi."); if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
+    elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta cobe tasindi.", "Cop kutusuna tasinamadi.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arsive kaldirildi.", "Arsivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi")) actionApi(card.dataset.id, "star", "Yildizlandi.", "Yildizlanamadi.", event.target.closest(".yildizla-dugmesi")); if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
