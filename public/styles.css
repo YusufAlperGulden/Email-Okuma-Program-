@@ -84,7 +84,7 @@ h1 em { color: var(--ana); font-style: normal; }
 .istatistik-karti div > span { overflow: hidden; color: var(--muted); font-size: .76rem; white-space: nowrap; text-overflow: ellipsis; }
 .istatistik-karti strong { margin-top: .1rem; font-size: 1.7rem; line-height: 1; letter-spacing: -.06em; }
 .istatistik-karti small { margin-top: .4rem; color: var(--muted); font-size: .7rem; }
-.vurgu-mavi .istatistik-ikon { background: #e5ebff; color: var(--ana); }.vurgu-kirmizi .istatistik-ikon { background: #ffe7eb; color: var(--kirmizi); }.vurgu-turuncu .istatistik-ikon { background: #fff0dc; color: var(--turuncu); }.vurgu-yesil .istatistik-ikon { background: #e1f6ee; color: var(--yesil); }
+.vurgu-mavi .istatistik-ikon { background: #e5ebff; color: var(--ana); }.vurgu-kirmizi .istatistik-ikon { background: #ffe7eb; color: var(--kirmizi); }.vurgu-turuncu .istatistik-ikon { background: #fff0dc; color: var(--turuncu); }.vurgu-yesil .istatistik-ikon { background: #e1f6ee; color: var(--yesil); }.vurgu-gri .istatistik-ikon { background: #e2e8f0; color: #475569; }
 .odak-ozeti { position: relative; overflow: hidden; min-height: 116px; margin-bottom: 2.7rem; border-radius: var(--yaricap); padding: 1.35rem 1.5rem; background: linear-gradient(115deg, #273d8f 0%, #536fdd 60%, #7759d9 100%); color: white; display: flex; align-items: center; gap: 1rem; box-shadow: 0 14px 27px rgba(60, 77, 170, .22); }
 .odak-ozeti::after { position: absolute; top: -67px; right: 4%; width: 190px; height: 190px; content: ""; opacity: .11; border: 36px solid #fff; border-radius: 50%; }
 .odak-ikon { position: relative; z-index: 1; width: 42px; height: 42px; flex: 0 0 auto; background: rgba(255,255,255,.17); border: 1px solid rgba(255,255,255,.24); border-radius: 13px; }
