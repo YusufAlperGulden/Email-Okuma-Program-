@@ -198,7 +198,7 @@
 
   function renderStats() {
     const c = counts();
-    const values = { today: statValue("today", c.today), action: statValue("action", c.action), followup: statValue("followup", c.followup), info: statValue("info", c.info) };
+    const values = { today: c.today, action: c.action, followup: c.followup, info: c.info };
     $("#bugunSayisi").textContent = values.today; $("#aksiyonSayisi").textContent = values.action; $("#takipSayisi").textContent = values.followup; $("#bilgiSayisi").textContent = values.info;
     $("#bugunAlt").textContent = values.today === 1 ? "yeni e-posta" : "yeni e-posta";
     $("#aksiyonAlt").textContent = values.action ? "yanıt bekliyor" : "bekleyen yok";
