@@ -468,7 +468,11 @@
       elements.settingsError.textContent = "Kullanıcı adı boş bırakılamaz.";
       return;
     }
-    if (!currentPassword) {
+    
+    const currentUsername = state.user?.username || state.user?.email || "";
+    const isOnlyProfilePic = (username.toLowerCase() === currentUsername.toLowerCase()) && !newPassword;
+    
+    if (!isOnlyProfilePic && !currentPassword) {
       elements.settingsError.textContent = "Değişiklikleri kaydetmek için mevcut parolanı yaz.";
       elements.settingsCurrentPassword.focus();
       return;

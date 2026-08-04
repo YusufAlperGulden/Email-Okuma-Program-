@@ -336,12 +336,13 @@ async function updateAccount(req, res, session) {
     [session.userId]
   );
   const user = result.rows[0];
-  if (!user || !(await passwordMatches(user.password_hash, currentPassword))) {
+  const currentUsername = user ? (user.username || user.email) : '';
+  const isOnlyProfilePictureUpdate = (requestedUsername === undefined || requestedUsername.trim().toLowerCase() === currentUsername.toLowerCase()) && !newPassword;
+  if (!isOnlyProfilePictureUpdate && (!user || !(await passwordMatches(user.password_hash, currentPassword)))) {
     recordAuthFailure(req, 'account_update');
     throw new HttpError(403, 'Mevcut parola doğru değil.', 'invalid_password');
   }
 
-  const currentUsername = user.username || user.email;
   const currentUsernameKey = user.username_key || normalizeLoginIdentifier(currentUsername);
   let nextUsername = currentUsername;
   let nextUsernameKey = currentUsernameKey;
