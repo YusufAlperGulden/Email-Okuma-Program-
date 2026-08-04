@@ -925,52 +925,10 @@ async function archiveEmail(id, req, res, userId) {
   return sendJson(res, 200, { ok: true });
 }
 
-function isStaticLowPriority(email) {
-  const fromLower = (email.from || '').toLowerCase();
-  const bodyLower = (email.bodyText || '').toLowerCase();
-
-  const promoPatterns = [
-    /noreply@/, /no-reply@/, /donotreply@/,
-    /newsletter/, /marketing@/, /promosyon/, /kampanya/,
-    /@mailchimp\.com/, /@sendgrid\.net/, /@linkedin\.com/,
-    /@medium\.com/, /@twitter\.com/, /@facebookmail\.com/,
-    /@quora\.com/, /@bounces\./
-  ];
-  for (const pattern of promoPatterns) {
-    if (pattern.test(fromLower)) return true;
-  }
-
-  const unsubscribeKeywords = [
-    'unsubscribe', 'üyelikten ayrıl', 'click here to unsubscribe', 
-    'e-posta almak istemiyorsanız', 'tarayıcıda görüntüle', 'view in browser', 'opt out',
-    'reklam', 'fırsat', 'ücretsiz', 'bedava', 'çekiliş', 
-    'şimdi al', 'satın al', 'sınırlı süre', 'kampanyalar', 'indirim', 'sponsorlu'
-  ];
-  for (const kw of unsubscribeKeywords) {
-    if (bodyLower.includes(kw)) return true;
-  }
-
-  return false;
-}
 
 async function analyzeEmail(email) {
   // Kullanıcı isteği üzerine yapay zeka (Gemini) tamamen devre dışı bırakıldı.
   return { ...localAnalysis(email), analysisSource: 'local_fallback', geminiAttemptedAt: null };
-
-  if (isStaticLowPriority(email)) {
-    return {
-      summary: email.bodyText || email.snippet || 'İçerik bulunamadı.',
-      priority: 'low',
-      reason: 'Gönderici veya içerik statik filtre tarafından bülten/reklam olarak algılandı.',
-      needsReply: false,
-      replyDeadlineAt: null,
-      actionItems: [],
-      followUpState: 'none',
-      possiblePromptInjection: false,
-      analysisSource: 'static_filter',
-      geminiAttemptedAt: null
-    };
-  }
 
   if (!CONFIG.geminiApiKey) {
     return { ...localAnalysis(email), analysisSource: 'local_fallback', geminiAttemptedAt: null };
