@@ -206,7 +206,7 @@ async function route(req, res) {
   if (method === 'GET' && pathname === '/api/auth/status') {
     return sendJson(res, 200, {
       authenticated: Boolean(session),
-      user: session ? { username: session.username } : null,
+      user: session ? { username: session.username, profilePicture: session.profilePicture } : null,
       registrationEnabled: Boolean(database) && !CONFIG.localMode,
       databaseConfigured: Boolean(database),
       localMode: CONFIG.localMode,
@@ -303,7 +303,7 @@ async function login(req, res) {
   const identifier = normalizeLoginIdentifier(body.identifier ?? body.username ?? body.email);
   const password = typeof body.password === 'string' ? body.password : '';
   const result = identifier ? await sql(
-    `SELECT id, username, username_key, email, password_hash
+    `SELECT id, username, username_key, email, password_hash, profile_picture
        FROM app_users
       WHERE username_key = $1
          OR LOWER(COALESCE(username, '')) = $1
@@ -320,7 +320,7 @@ async function login(req, res) {
   clearAuthAttempts(req, 'login');
   const username = user.username || user.email;
   const session = await createSession({ userId: user.id, username });
-  return respondWithSession(res, session, { authenticated: true, user: { username } });
+  return respondWithSession(res, session, { authenticated: true, user: { username, profilePicture: user.profile_picture } });
 }
 
 async function updateAccount(req, res, session) {
@@ -328,10 +328,11 @@ async function updateAccount(req, res, session) {
   const body = await readJson(req);
   const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
   const requestedUsername = typeof body.username === 'string' ? body.username : undefined;
+  const requestedProfilePicture = typeof body.profilePicture === 'string' ? body.profilePicture : undefined;
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
   const passwordConfirmation = typeof body.passwordConfirmation === 'string' ? body.passwordConfirmation : '';
   const result = await sql(
-    'SELECT username, username_key, email, password_hash FROM app_users WHERE id = $1',
+    'SELECT username, username_key, email, password_hash, profile_picture FROM app_users WHERE id = $1',
     [session.userId]
   );
   const user = result.rows[0];
@@ -344,14 +345,19 @@ async function updateAccount(req, res, session) {
   const currentUsernameKey = user.username_key || normalizeLoginIdentifier(currentUsername);
   let nextUsername = currentUsername;
   let nextUsernameKey = currentUsernameKey;
+  let nextProfilePicture = user.profile_picture;
   if (requestedUsername !== undefined && requestedUsername.trim().toLowerCase() !== currentUsername.toLowerCase()) {
     nextUsername = normalizeUsername(requestedUsername);
     if (!nextUsername) throw new HttpError(400, 'Kullanıcı adı 3–32 karakter olmalı; harf, rakam, nokta, alt çizgi veya tire kullanabilirsiniz.', 'invalid_username');
     nextUsernameKey = nextUsername.toLowerCase();
   }
+  if (requestedProfilePicture !== undefined) {
+    nextProfilePicture = requestedProfilePicture;
+  }
   const usernameChanged = nextUsername !== currentUsername || nextUsernameKey !== currentUsernameKey;
   const passwordChanged = Boolean(newPassword || passwordConfirmation);
-  if (!usernameChanged && !passwordChanged) {
+  const profilePictureChanged = nextProfilePicture !== user.profile_picture;
+  if (!usernameChanged && !passwordChanged && !profilePictureChanged) {
     throw new HttpError(400, 'Kaydedilecek bir hesap değişikliği yok.', 'no_account_changes');
   }
   if (passwordChanged) {
@@ -364,7 +370,7 @@ async function updateAccount(req, res, session) {
   }
 
   const passwordHash = passwordChanged ? await hashPassword(newPassword) : null;
-  const refreshedSession = newSession({ userId: session.userId, username: nextUsername });
+  const refreshedSession = newSession({ userId: session.userId, username: nextUsername, profilePicture: nextProfilePicture });
   try {
     await withTransaction(async (client) => {
       if (usernameChanged) {
@@ -389,6 +395,10 @@ async function updateAccount(req, res, session) {
         params.push(passwordHash);
         updates.unshift(`password_hash = $${params.length}`);
       }
+      if (profilePictureChanged) {
+        params.push(nextProfilePicture);
+        updates.unshift(`profile_picture = $${params.length}`);
+      }
       params.push(session.userId, user.password_hash);
       const update = await client.query(
         `UPDATE app_users
@@ -408,7 +418,7 @@ async function updateAccount(req, res, session) {
     throw error;
   }
   clearAuthAttempts(req, 'account_update');
-  return respondWithSession(res, refreshedSession, { authenticated: true, user: { username: nextUsername } });
+  return respondWithSession(res, refreshedSession, { authenticated: true, user: { username: nextUsername, profilePicture: nextProfilePicture } });
 }
 
 async function logout(req, res, session) {
@@ -449,10 +459,10 @@ async function createSession({ userId, username }) {
   return session;
 }
 
-function newSession({ userId, username }) {
+function newSession({ userId, username, profilePicture = null }) {
   const id = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  return { id, idHash: hashSecret(id), userId, username, expiresAt: expiresAt.valueOf() };
+  return { id, idHash: hashSecret(id), userId, username, profilePicture, expiresAt: expiresAt.valueOf() };
 }
 
 function respondWithSession(res, session, payload) {
@@ -467,7 +477,7 @@ async function getSession(req) {
   if (!id) return null;
   const idHash = hashSecret(id);
   const result = await sql(
-    `SELECT s.user_id, s.expires_at, COALESCE(u.username, u.email) AS username
+    `SELECT s.user_id, s.expires_at, COALESCE(u.username, u.email) AS username, u.profile_picture
        FROM app_sessions s
        JOIN app_users u ON u.id = s.user_id
       WHERE s.id_hash = $1 AND s.expires_at > NOW()`,
@@ -478,7 +488,7 @@ async function getSession(req) {
     await sql('DELETE FROM app_sessions WHERE id_hash = $1', [idHash]);
     return null;
   }
-  return { id, idHash, userId: row.user_id, username: row.username, expiresAt: new Date(row.expires_at).valueOf() };
+  return { id, idHash, userId: row.user_id, username: row.username, profilePicture: row.profile_picture, expiresAt: new Date(row.expires_at).valueOf() };
 }
 function sessionCookie(session) {
   const secure = CONFIG.production ? '; Secure' : '';
@@ -1310,6 +1320,7 @@ async function initializeDatabase() {
       'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS email TEXT',
       'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS username TEXT',
       'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS username_key TEXT',
+      'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS profile_picture TEXT',
       'ALTER TABLE app_users ADD COLUMN IF NOT EXISTS gmail_consent_at TIMESTAMPTZ',
       // Original e-mail accounts retain the same value as their first
       // username. This is an additive copy, not a destructive column rename.

@@ -19,10 +19,11 @@
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
     accountUsername: $("#kullaniciAdiGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
-    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
+    snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), accountAvatarLetters: $("#oturumDugmesiHarfler"), accountAvatarImage: $("#oturumDugmesiResim"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsProfilePreview: $("#ayarProfilOnizleme"), settingsProfileInput: $("#ayarProfilGirdisi"), settingsProfileClear: $("#ayarProfilTemizle"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
     desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet")
   };
 
+  let selectedProfilePicture = undefined;
   function isDesktop() { return Boolean(desktopBridge && state.localMode); }
 
   function normaliseEmail(email, index) {
@@ -412,8 +413,20 @@
     const initials = username
       ? username.split(/[._@-]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
       : "OP";
-    elements.account.textContent = initials || "OP";
-    elements.account.title = username ? `${username} – hesap ayarları` : "Giriş yap";
+    if (state.user?.profilePicture) {
+      if (elements.accountAvatarImage) {
+        elements.accountAvatarImage.src = state.user.profilePicture;
+        elements.accountAvatarImage.hidden = false;
+      }
+      if (elements.accountAvatarLetters) elements.accountAvatarLetters.hidden = true;
+    } else {
+      if (elements.accountAvatarImage) elements.accountAvatarImage.hidden = true;
+      if (elements.accountAvatarLetters) {
+        elements.accountAvatarLetters.textContent = initials || "OP";
+        elements.accountAvatarLetters.hidden = false;
+      }
+    }
+    elements.account.title = username ? `${username} - hesap ayarları` : "Giriş yap";
     elements.account.hidden = false;
     elements.deleteAccountButton.hidden = !username;
     if (elements.settingsButton) elements.settingsButton.hidden = !username;
@@ -421,13 +434,24 @@
   }
 
   function showAccountSettings() {
-    if (!state.user) return;
-    elements.settingsUsername.value = state.user.username || "";
+    if (elements.settingsDialog.open) return;
+    selectedProfilePicture = undefined;
+    elements.settingsProfileInput.value = "";
+    if (state.user?.profilePicture) {
+      elements.settingsProfilePreview.src = state.user.profilePicture;
+      elements.settingsProfilePreview.hidden = false;
+      elements.settingsProfileClear.hidden = false;
+    } else {
+      elements.settingsProfilePreview.src = "";
+      elements.settingsProfilePreview.hidden = true;
+      elements.settingsProfileClear.hidden = true;
+    }
+    elements.settingsUsername.value = state.user?.username || "";
+    elements.settingsCurrentPassword.value = "";
     elements.settingsNewPassword.value = "";
     elements.settingsNewPasswordConfirmation.value = "";
-    elements.settingsCurrentPassword.value = "";
     elements.settingsError.textContent = "";
-    if (!elements.settingsDialog.open) elements.settingsDialog.showModal();
+    elements.settingsDialog.showModal();
     window.setTimeout(() => elements.settingsUsername.focus(), 30);
   }
 
@@ -453,7 +477,7 @@
     try {
       const result = await request("/api/account", {
         method: "PATCH",
-        body: JSON.stringify({ username, newPassword, passwordConfirmation, currentPassword })
+        body: JSON.stringify({ username, newPassword, passwordConfirmation, currentPassword, profilePicture: selectedProfilePicture })
       });
       state.user = result?.user || { username };
       updateAccountButton();
@@ -613,6 +637,30 @@
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
     if (elements.settingsForm) { elements.settingsForm.addEventListener("submit", event => { event.preventDefault(); void saveAccountSettings(); }); }
+    if (elements.settingsProfileInput) {
+      elements.settingsProfileInput.addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        try {
+          const base64 = await resizeAndCropImage(file, 256);
+          selectedProfilePicture = base64;
+          elements.settingsProfilePreview.src = base64;
+          elements.settingsProfilePreview.hidden = false;
+          elements.settingsProfileClear.hidden = false;
+        } catch (e) {
+          notify("Resim yüklenirken hata oluştu.", "uyari");
+        }
+      });
+    }
+    if (elements.settingsProfileClear) {
+      elements.settingsProfileClear.addEventListener("click", () => {
+        selectedProfilePicture = null;
+        elements.settingsProfilePreview.src = "";
+        elements.settingsProfilePreview.hidden = true;
+        elements.settingsProfileClear.hidden = true;
+        elements.settingsProfileInput.value = "";
+      });
+    }
     if (elements.settingsButton) { elements.settingsButton.addEventListener("click", showAccountSettings); }
     if (elements.settingsClose) { elements.settingsClose.addEventListener("click", () => elements.settingsDialog.close()); }
     if (elements.settingsLogout) { elements.settingsLogout.addEventListener("click", () => { elements.settingsDialog.close(); void logout(); }); }
@@ -622,6 +670,30 @@
     elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked) showAccountSettings(); });
     elements.setupLink.addEventListener("click", connectGmail);
     elements.disconnectGmail.addEventListener("click", disconnectGmail);
+  }
+
+  function resizeAndCropImage(file, size) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          const dim = Math.min(img.width, img.height);
+          const cx = img.width / 2;
+          const cy = img.height / 2;
+          ctx.drawImage(img, cx - dim / 2, cy - dim / 2, dim, dim, 0, 0, size, size);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
   async function boot() { initialiseTheme(); bindEvents(); const allowed = await checkAuth(); if (allowed) await loadDashboard(); }

@@ -23,10 +23,13 @@
             <i></i><span>Hazırlanıyor</span>
           </span>
           <button class="ikon-dugme" id="masaustuAyarDugmesi" type="button" aria-label="Masaüstü ayarlarını aç" title="Masaüstü ayarları" hidden>⚙</button>
-          <button class="ikon-dugme" id="temaDugmesi" type="button" aria-label="Koyu temayı aç" title="Temayı değiştir">◐</button>
-          <button class="profil-dugmesi" id="oturumDugmesi" type="button" aria-label="Oturum seçenekleri" title="Oturum seçenekleri">OP</button>
-        </div>
-      </header>
+            <button class="ikon-dugme" id="temaDugmesi" type="button" aria-label="Koyu temayı aç" title="Temayı değiştir">☾</button>
+            <button class="profil-dugmesi" id="oturumDugmesi" type="button" aria-label="Oturum seçenekleri" title="Oturum seçenekleri">
+              <span id="oturumDugmesiHarfler">OP</span>
+              <img id="oturumDugmesiResim" class="profil-resmi" alt="Profil fotoğrafı" hidden />
+            </button>
+          </div>
+        </header>
 
       <main id="ana-icerik" class="icerik" tabindex="-1">
         <section class="karsilama" aria-labelledby="baslik">
@@ -221,7 +224,16 @@
         <button class="pencere-kapat" type="button" id="hesapAyarlariKapat" aria-label="Hesap ayarları penceresini kapat">✕</button>
         <p class="goz-bant">HESAP AYARLARI</p>
         <h2 id="hesapAyarlariBasligi">Hesap bilgilerini düzenle</h2>
-        <p>Kullanıcı adını veya parolanı değiştirmek için mevcut parolanı doğrula.</p>
+        <p>Profil fotoğrafını, kullanıcı adını veya parolanı değiştirmek için mevcut parolanı doğrula.</p>
+        <label>Profil Fotoğrafı</label>
+        <div class="profil-secim-alani">
+          <img id="ayarProfilOnizleme" class="profil-onizleme" alt="Profil önizleme" hidden />
+          <div class="profil-secim-dugmeler" style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="file" id="ayarProfilGirdisi" accept="image/*" style="display:none;" />
+            <button type="button" class="ikincil-dugme" onclick="document.getElementById('ayarProfilGirdisi').click()">Fotoğraf Seç</button>
+            <button type="button" class="ikincil-dugme" id="ayarProfilTemizle" hidden>Kaldır</button>
+          </div>
+        </div>
         <label for="ayarKullaniciAdiGirdisi">Kullanıcı adı</label>
         <input id="ayarKullaniciAdiGirdisi" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required />
         <p class="ayar-yardim">Yeni kullanıcı adları 3–32 karakter olmalı; harf, rakam, nokta, alt çizgi ve tire kullanabilirsin.</p>
