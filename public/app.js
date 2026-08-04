@@ -762,7 +762,7 @@
   }
 
   function initialiseTheme() {
-    const saved = localStorage.getItem("odak-posta-tema"); const dark = saved ? saved === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const saved = localStorage.getItem("odak-posta-tema"); const dark = saved ? saved === "dark" : true;
     document.body.classList.toggle("koyu", dark); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç");
   }
 
