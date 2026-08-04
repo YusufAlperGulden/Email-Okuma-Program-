@@ -147,12 +147,13 @@
     const all = state.emails;
     const active = all.filter(email => email.status !== "done" && !isSnoozedForLater(email));
     return {
-      today: all.filter(email => isToday(email.receivedAt)).length,
+      today: all.filter(email => isToday(email.receivedAt) && !isSnoozedForLater(email)).length,
       action: active.filter(email => email.category === "action").length,
-      followup: active.filter(email => email.category === "followup" || Boolean(email.snoozedUntil)).length,
+      followup: active.filter(email => email.category === "followup").length,
       info: active.filter(email => email.category === "info").length,
-      all: all.length,
-      done: all.filter(email => email.status === "done").length
+      all: active.length,
+      done: all.filter(email => email.status === "done").length,
+      snoozed: all.filter(email => isSnoozedForLater(email)).length
     };
   }
 
@@ -186,6 +187,7 @@
     let emails = [...state.emails];
     if (state.activeFilter === "today") emails = emails.filter(email => isToday(email.receivedAt) && !isSnoozedForLater(email));
     else if (state.activeFilter === "done") emails = emails.filter(email => email.status === "done");
+    else if (state.activeFilter === "snoozed") emails = emails.filter(email => isSnoozedForLater(email));
     else if (state.activeFilter !== "all") emails = emails.filter(email => email.category === state.activeFilter && email.status !== "done" && !isSnoozedForLater(email));
     else emails = emails.filter(email => email.status !== "done" && !isSnoozedForLater(email));
     const query = state.query.trim().toLocaleLowerCase("tr-TR");
@@ -203,6 +205,7 @@
     $("#takipAlt").textContent = values.followup ? "hatırlatılacak" : "takip temiz";
     $("#bilgiAlt").textContent = values.info ? "okunabilir" : "bilgi postası yok";
     $("#tumSayisi").textContent = c.all; $("#filtreAksiyonSayisi").textContent = c.action; $("#filtreTakipSayisi").textContent = c.followup;
+    if ($("#filtreErtelenenSayisi")) $("#filtreErtelenenSayisi").textContent = c.snoozed;
   }
 
   function renderFocus() {
