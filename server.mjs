@@ -972,11 +972,12 @@ async function analyzeEmail(email) {
 }
 
 function needsGeminiUpgrade(email) {
-  if (!CONFIG.geminiApiKey || email?.analysisSource === 'gemini' || email?.analysisSource === 'static_filter') return false;
+  // Kullanıcı yapay zekayı devre dışı bıraktığı için, eski 'gemini' veya 'static_filter' 
+  // analizlerine sahip e-postaları mecburen 'local_fallback' ile yeniden analiz ediyoruz (Downgrade).
+  if (email?.analysisSource === 'gemini' || email?.analysisSource === 'static_filter') return true;
+
+  if (!CONFIG.geminiApiKey || email?.analysisSource === 'local_fallback') return false;
   const lastAttemptAt = Date.parse(email?.geminiAttemptedAt || '');
-  // Old local-only results have no attempt timestamp, so they are upgraded as
-  // soon as an API key becomes available. Temporary API failures retry later
-  // without spending quota on the same inbox every scheduled run.
   return !Number.isFinite(lastAttemptAt) || Date.now() - lastAttemptAt >= GEMINI_FALLBACK_RETRY_MS;
 }
 
