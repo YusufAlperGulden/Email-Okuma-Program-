@@ -293,7 +293,7 @@
       $(".oncelik-etiketi", card).textContent = prioText; $(".durum-etiketi", card).textContent = email.status === "done" ? "Tamamlandı" : categoryLabel(email.category);
       $(".konu", card).textContent = email.subject; $(".ozet", card).textContent = email.summary; $(".neden", card).textContent = email.importanceReason; $(".aksiyon-metni", card).textContent = email.action;
       const complete = $(".tamamla-dugmesi", card); const snooze = $(".ertele-dugmesi", card); const reply = $(".cevapla-dugmesi", card);
-      if (email.status === "done") { complete.hidden = true; snooze.hidden = true; if (reply) reply.hidden = true; const kdugme = $(".kart-dugme-grup", card); if (kdugme) kdugme.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayı aç ↗"; }
+      if (email.status === "done") { complete.hidden = true; snooze.hidden = true; if (reply) reply.hidden = true; const b1 = $(".sil-dugmesi", card); if (b1) b1.hidden = true; const b2 = $(".arsivle-dugmesi", card); if (b2) b2.hidden = true; const b3 = $(".yildizla-dugmesi", card); if (b3) b3.hidden = true; const b4 = $(".takvim-dugmesi", card); if (b4) b4.hidden = true; const b5 = $(".kopyala-dugmesi", card); if (b5) b5.hidden = true; $(".incele-dugmesi", card).textContent = "E-postayı aç ↗"; }
             const starButton = $(".yildizla-dugmesi", card);
       if (starButton) {
         const isStarred = email.labels && email.labels.includes("STARRED");
