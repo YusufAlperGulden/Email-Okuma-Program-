@@ -954,6 +954,9 @@ function isStaticLowPriority(email) {
 }
 
 async function analyzeEmail(email) {
+  // Kullanıcı isteği üzerine yapay zeka (Gemini) tamamen devre dışı bırakıldı.
+  return { ...localAnalysis(email), analysisSource: 'local_fallback', geminiAttemptedAt: null };
+
   if (isStaticLowPriority(email)) {
     return {
       summary: email.bodyText || email.snippet || 'İçerik bulunamadı.',
