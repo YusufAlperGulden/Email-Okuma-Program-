@@ -956,7 +956,7 @@ function isStaticLowPriority(email) {
 async function analyzeEmail(email) {
   if (isStaticLowPriority(email)) {
     return {
-      summary: 'Otomatik bülten, bilgilendirme veya promosyon e-postası.',
+      summary: email.bodyText || email.snippet || 'İçerik bulunamadı.',
       priority: 'low',
       reason: 'Gönderici veya içerik statik filtre tarafından bülten/reklam olarak algılandı.',
       needsReply: false,
