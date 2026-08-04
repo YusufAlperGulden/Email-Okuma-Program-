@@ -117,6 +117,5 @@ body.koyu { --zemin: #101729; --yuzey: #172136; --yuzey-soluk: #202d46; --metin:
 
 .profil-dugmesi { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .profil-resmi { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; border-radius: 50%; }
-.profil-secim-alani { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: .85rem; }
-.profil-onizleme { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 1px solid var(--cizgi); }
-
+.profil-secim-alani { display: flex; flex-direction: column; align-items: center; margin-bottom: .85rem; }
+.profil-onizleme { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 1px solid var(--cizgi); box-shadow: var(--golge); }
