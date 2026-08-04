@@ -204,6 +204,8 @@
       return emails.sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt));
     } else if (state.sortBy === "sender") {
       return emails.sort((a, b) => (a.sender || "").localeCompare(b.sender || ""));
+    } else if (state.sortBy === "senderDesc") {
+      return emails.sort((a, b) => (b.sender || "").localeCompare(a.sender || ""));
     }
     
     // Default: AI Priority
