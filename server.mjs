@@ -218,6 +218,8 @@ async function route(req, res) {
   }
   if (method === 'POST' && pathname === '/api/auth/register') return register(req, res);
   if (method === 'POST' && (pathname === '/api/auth/login' || pathname === '/api/login')) return login(req, res);
+  if (method === 'POST' && pathname === '/api/auth/forgot-password') return forgotPassword(req, res);
+  if (method === 'POST' && pathname === '/api/auth/reset-password') return resetPassword(req, res);
   if (method === 'POST' && pathname === '/api/logout') return logout(req, res, session);
 
   if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
@@ -272,7 +274,8 @@ async function register(req, res) {
   const body = await readJson(req);
   const username = normalizeUsername(body.username);
   const password = typeof body.password === 'string' ? body.password : '';
-  if (!username) throw new HttpError(400, 'Geçerli bir kullanıcı adı girin.', 'invalid_username');
+  if (!username) throw new HttpError(400, 'Geçerli bir e-posta adresi girin.', 'invalid_username');
+  if (!username.includes('@')) throw new HttpError(400, 'Hesap oluştururken geçerli bir e-posta adresi girmelisiniz.', 'invalid_username_format');
   if (password.length < PASSWORD_MIN_LENGTH) {
     throw new HttpError(400, `Parola en az ${PASSWORD_MIN_LENGTH} karakter olmalıdır.`, 'password_too_short');
   }
@@ -322,7 +325,11 @@ async function login(req, res) {
     [identifier]
   ) : { rows: [] };
   const user = result.rows[0];
-  if (!user || !(await passwordMatches(user.password_hash, password))) {
+  if (!user) {
+    recordAuthFailure(req, 'login');
+    throw new HttpError(401, 'Böyle bir kullanıcı bulunamadı.', 'user_not_found');
+  }
+  if (!(await passwordMatches(user.password_hash, password))) {
     recordAuthFailure(req, 'login');
     throw new HttpError(401, 'Kullanıcı adı veya parola doğru değil.', 'invalid_credentials');
   }
@@ -359,7 +366,8 @@ async function updateAccount(req, res, session) {
   let nextProfilePicture = user.profile_picture;
   if (requestedUsername !== undefined && requestedUsername.trim().toLowerCase() !== currentUsername.toLowerCase()) {
     nextUsername = normalizeUsername(requestedUsername);
-    if (!nextUsername) throw new HttpError(400, 'Kullanıcı adı 3–32 karakter olmalı; harf, rakam, boşluk, nokta, alt çizgi, tire veya @ işareti kullanabilirsiniz.', 'invalid_username');
+    if (!nextUsername) throw new HttpError(400, 'Geçerli bir e-posta adresi girin.', 'invalid_username');
+    if (!nextUsername.includes('@')) throw new HttpError(400, 'Yeni kullanıcı adı geçerli bir e-posta adresi olmalıdır.', 'invalid_username_format');
     nextUsernameKey = nextUsername.toLowerCase();
   }
   if (requestedProfilePicture !== undefined) {
@@ -461,6 +469,89 @@ async function deleteAccount(req, res, session) {
   await sql('DELETE FROM app_users WHERE id = $1', [session.userId]);
   res.setHeader('Set-Cookie', clearCookie());
   return sendJson(res, 200, { ok: true });
+}
+
+async function forgotPassword(req, res) {
+  const body = await readJson(req);
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
+  if (!username) throw new HttpError(400, 'Lütfen e-posta adresinizi girin.', 'email_required');
+  
+  if (!username.includes('@')) {
+    throw new HttpError(400, 'Geçerli bir e-posta adresi girmelisiniz.', 'invalid_email');
+  }
+
+  const result = await sql('SELECT id FROM app_users WHERE username_key = LOWER($1) OR LOWER(email) = LOWER($1)', [username]);
+  const user = result.rows[0];
+
+  if (!user) {
+    return sendJson(res, 200, { ok: true, message: 'Şifre sıfırlama linki e-postanıza gönderildi.' });
+  }
+
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  
+  await sql('INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [tokenHash, user.id, expiresAt]);
+
+  const resetLink = `https://${req.headers.host || 'localhost'}/?reset-token=${token}`;
+
+  try {
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+      await transporter.sendMail({
+        from: `"OdakPosta" <${process.env.SMTP_USER}>`,
+        to: username,
+        subject: 'OdakPosta - Şifre Sıfırlama Talebi',
+        text: `Parolanızı sıfırlamak için şu linke tıklayın:\n\n${resetLink}\n\nBu link 15 dakika geçerlidir.`,
+        html: `<p>Parolanızı sıfırlamak için aşağıdaki linke tıklayın:</p><p><a href="${resetLink}">${resetLink}</a></p><p>Bu link 15 dakika geçerlidir.</p>`
+      });
+    } else {
+      console.log(`[DRY RUN] Şifre sıfırlama linki oluşturuldu (E-posta ayarları eksik): \nTo: ${username}\nLink: ${resetLink}`);
+    }
+  } catch (error) {
+    console.error('Şifre sıfırlama e-postası gönderilemedi:', error);
+    throw new HttpError(500, 'E-posta gönderilirken bir sorun oluştu.', 'email_failed');
+  }
+
+  return sendJson(res, 200, { ok: true, message: 'Şifre sıfırlama linki e-postanıza gönderildi.' });
+}
+
+async function resetPassword(req, res) {
+  const body = await readJson(req);
+  const token = typeof body.token === 'string' ? body.token : '';
+  const newPassword = typeof body.password === 'string' ? body.password : '';
+  
+  if (!token) throw new HttpError(400, 'Geçersiz veya süresi dolmuş bağlantı.', 'invalid_token');
+  if (newPassword.length < PASSWORD_MIN_LENGTH) {
+    throw new HttpError(400, `Parola en az ${PASSWORD_MIN_LENGTH} karakter olmalıdır.`, 'password_too_short');
+  }
+
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  
+  await withTransaction(async (client) => {
+    const result = await client.query('SELECT user_id FROM password_reset_tokens WHERE token_hash = $1 AND expires_at > NOW()', [tokenHash]);
+    const row = result.rows[0];
+    if (!row) {
+      throw new HttpError(400, 'Geçersiz veya süresi dolmuş sıfırlama linki.', 'invalid_token');
+    }
+    
+    const userId = row.user_id;
+    const passwordHash = await hashPassword(newPassword);
+    
+    await client.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+    await client.query('DELETE FROM password_reset_tokens WHERE token_hash = $1', [tokenHash]);
+    await client.query('DELETE FROM app_sessions WHERE user_id = $1', [userId]);
+  });
+
+  return sendJson(res, 200, { ok: true, message: 'Parolanız başarıyla güncellendi. Lütfen yeni parolanızla giriş yapın.' });
 }
 
 async function createSession({ userId, username }) {
@@ -1440,6 +1531,13 @@ async function initializeDatabase() {
          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
        )`,
       'CREATE INDEX IF NOT EXISTS app_sessions_expires_at_index ON app_sessions (expires_at)',
+      `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+         token_hash TEXT PRIMARY KEY,
+         user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+         expires_at TIMESTAMPTZ NOT NULL,
+         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+      'CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_at_index ON password_reset_tokens (expires_at)',
       `CREATE TABLE IF NOT EXISTS oauth_states (
          state_hash TEXT PRIMARY KEY,
          user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
@@ -1482,6 +1580,7 @@ async function initializeDatabase() {
     ];
     for (const statement of schema) await database.query(statement);
     await database.query('DELETE FROM app_sessions WHERE expires_at <= NOW()');
+    await database.query('DELETE FROM password_reset_tokens WHERE expires_at <= NOW()');
     await database.query('DELETE FROM oauth_states WHERE expires_at <= NOW()');
     await migrateLegacyEncryptedRecords();
   } catch (error) {

@@ -200,9 +200,9 @@
         <div class="giris-ikon" aria-hidden="true">✦</div>
         <p class="goz-bant">GÜVENLİ ERİŞİM</p>
         <h2 id="girisBasligi">OdakPosta'ya giriş yap</h2>
-        <p id="girisAciklamasi">Kullanıcı adın ve parolanla giriş yap.</p>
-        <label for="kullaniciAdiGirdisi">Kullanıcı adı</label>
-        <input id="kullaniciAdiGirdisi" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+        <p id="girisAciklamasi">E-posta adresin ve parolanla giriş yap.</p>
+        <label for="kullaniciAdiGirdisi">E-posta</label>
+        <input id="kullaniciAdiGirdisi" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required />
         <label for="parolaGirdisi">Parola</label>
         <input id="parolaGirdisi" type="password" autocomplete="current-password" required />
         <div id="parolaTekrarAlani" hidden>
@@ -211,7 +211,38 @@
         </div>
         <p class="form-hatasi" id="girisHatasi" aria-live="polite"></p>
         <button class="birincil-dugme tam-genislik" type="submit" id="girisGonder">Giriş yap</button>
+        <button class="metin-dugme" type="button" id="sifremiUnuttumDugmesi">Şifremi unuttum</button>
         <button class="metin-dugme" type="button" id="kimlikModuDegistir">Hesabın yok mu? Hesap oluştur</button>
+      </form>
+    </dialog>
+
+    <dialog class="giris-penceresi" id="sifremiUnuttumPenceresi" aria-labelledby="sifremiUnuttumBasligi">
+      <form method="dialog" id="sifremiUnuttumFormu">
+        <button class="pencere-kapat" type="button" id="sifremiUnuttumKapat" aria-label="Pencereyi kapat">×</button>
+        <div class="giris-ikon" aria-hidden="true">✦</div>
+        <p class="goz-bant">PAROLA SIFIRLAMA</p>
+        <h2 id="sifremiUnuttumBasligi">Şifremi Unuttum</h2>
+        <p id="sifremiUnuttumAciklamasi">Hesabınıza kayıtlı e-posta adresinizi girin. Size bir sıfırlama linki göndereceğiz.</p>
+        <label for="sifremiUnuttumEpostaGirdisi">E-posta</label>
+        <input id="sifremiUnuttumEpostaGirdisi" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required />
+        <p class="form-hatasi" id="sifremiUnuttumHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik" type="submit" id="sifremiUnuttumGonder">Sıfırlama Linki Gönder</button>
+      </form>
+    </dialog>
+
+    <dialog class="giris-penceresi" id="yeniParolaPenceresi" aria-labelledby="yeniParolaBasligi">
+      <form method="dialog" id="yeniParolaFormu">
+        <button class="pencere-kapat" type="button" id="yeniParolaKapat" aria-label="Pencereyi kapat" hidden>×</button>
+        <div class="giris-ikon" aria-hidden="true">✦</div>
+        <p class="goz-bant">YENİ PAROLA BELİRLE</p>
+        <h2 id="yeniParolaBasligi">Parolanızı Yenileyin</h2>
+        <p>Lütfen hesabınız için yeni bir parola belirleyin.</p>
+        <label for="yeniParolaGirdisi">Yeni Parola</label>
+        <input id="yeniParolaGirdisi" type="password" autocomplete="new-password" required />
+        <label for="yeniParolaTekrarGirdisi">Yeni Parolayı Tekrar Yazın</label>
+        <input id="yeniParolaTekrarGirdisi" type="password" autocomplete="new-password" required />
+        <p class="form-hatasi" id="yeniParolaHatasi" aria-live="polite"></p>
+        <button class="birincil-dugme tam-genislik" type="submit" id="yeniParolaGonder">Parolayı Güncelle</button>
       </form>
     </dialog>
 

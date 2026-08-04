@@ -18,6 +18,8 @@
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
+    forgotPassword: $("#sifremiUnuttumPenceresi"), forgotPasswordForm: $("#sifremiUnuttumFormu"), forgotPasswordError: $("#sifremiUnuttumHatasi"), forgotPasswordEmail: $("#sifremiUnuttumEpostaGirdisi"), forgotPasswordClose: $("#sifremiUnuttumKapat"), forgotPasswordButton: $("#sifremiUnuttumDugmesi"),
+    resetPassword: $("#yeniParolaPenceresi"), resetPasswordForm: $("#yeniParolaFormu"), resetPasswordError: $("#yeniParolaHatasi"), resetPasswordInput: $("#yeniParolaGirdisi"), resetPasswordConfirm: $("#yeniParolaTekrarGirdisi"), resetPasswordClose: $("#yeniParolaKapat"),
     accountUsername: $("#kullaniciAdiGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
     snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), accountAvatarLetters: $("#oturumDugmesiHarfler"), accountAvatarImage: $("#oturumDugmesiResim"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsProfilePreview: $("#ayarProfilOnizleme"), settingsProfileInput: $("#ayarProfilGirdisi"), settingsProfileClear: $("#ayarProfilTemizle"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
     desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet")
@@ -516,6 +518,47 @@
     elements.listStatus.innerHTML = "<div class=\"bos-durum\"><strong>Yerel veritabanı başlatılamadı.</strong><span>Masaüstü uygulamasını yeniden başlatın. Sorun sürerse ayarlarınızı gözden geçirin.</span></div>";
   }
 
+  async function submitForgotPassword() {
+    const username = elements.forgotPasswordEmail.value.trim();
+    if (!username) return;
+    elements.forgotPasswordButton.disabled = true;
+    elements.forgotPasswordError.textContent = "";
+    try {
+      const result = await request("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ username }) });
+      elements.forgotPasswordForm.reset();
+      elements.forgotPassword.close();
+      notify(result.message || "Şifre sıfırlama linki gönderildi.", "basari");
+    } catch (error) {
+      elements.forgotPasswordError.textContent = error.message || "Bir hata oluştu.";
+    } finally {
+      elements.forgotPasswordButton.disabled = false;
+    }
+  }
+
+  async function submitResetPassword() {
+    const token = new URLSearchParams(window.location.search).get('reset-token');
+    const password = elements.resetPasswordInput.value;
+    const confirmPassword = elements.resetPasswordConfirm.value;
+    if (!password || password !== confirmPassword) {
+      elements.resetPasswordError.textContent = "Parolalar eşleşmiyor.";
+      return;
+    }
+    elements.resetPasswordForm.querySelector('button[type="submit"]').disabled = true;
+    elements.resetPasswordError.textContent = "";
+    try {
+      const result = await request("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
+      elements.resetPasswordForm.reset();
+      elements.resetPassword.close();
+      window.history.replaceState({}, document.title, window.location.pathname);
+      notify(result.message || "Parolanız güncellendi.", "basari");
+      showLogin("login");
+    } catch (error) {
+      elements.resetPasswordError.textContent = error.message || "Parola güncellenemedi.";
+    } finally {
+      elements.resetPasswordForm.querySelector('button[type="submit"]').disabled = false;
+    }
+  }
+
   async function submitAuth() {
     const username = elements.accountUsername.value.trim(); const password = elements.password.value; const passwordConfirmation = elements.passwordConfirmation.value;
     if (!username || !password || (state.authMode === "register" && !passwordConfirmation)) return;
@@ -793,6 +836,11 @@
     elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taşındı.", "Çöp kutusuna taşınamadı.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arşive kaldırıldı.", "Arşivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yıldızlandı.", "Yıldızlanamadı.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arşivden çıkarıldı.", "İşlem başarısız.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta çöp kutusundan çıkarıldı.", "İşlem başarısız.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
+    elements.forgotPasswordForm.addEventListener("submit", event => { event.preventDefault(); submitForgotPassword(); });
+    elements.forgotPasswordButton.addEventListener("click", () => { elements.login.close(); elements.forgotPassword.showModal(); });
+    elements.forgotPasswordClose.addEventListener("click", () => elements.forgotPassword.close());
+    elements.resetPasswordForm.addEventListener("submit", event => { event.preventDefault(); submitResetPassword(); });
+    if (elements.resetPasswordClose) elements.resetPasswordClose.addEventListener("click", () => elements.resetPassword.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
     if (elements.settingsForm) { elements.settingsForm.addEventListener("submit", event => { event.preventDefault(); void saveAccountSettings(); }); }
     if (elements.settingsProfileInput) {
@@ -857,7 +905,7 @@
   function randomizeSlogan() {
     const slogans = [
       "Bugün gerçekten <em>önemli</em> olanlar.",
-      "Gelen kutunuzda kontrol <em>sizde</em>.",
+      "Gelen kutunuzda kontrol <em>sizde.</em>",
       "Sadece <em>odaklanmanız</em> gerekenler.",
       "Zamanınızı <em>geri kazanın.</em>"
     ];
@@ -867,6 +915,18 @@
     }
   }
 
-  async function boot() { randomizeSlogan(); initialiseTheme(); bindEvents(); const allowed = await checkAuth(); if (allowed) await loadDashboard(); }
+  async function boot() {
+    randomizeSlogan();
+    initialiseTheme();
+    bindEvents();
+    
+    if (new URLSearchParams(window.location.search).get('reset-token')) {
+      elements.resetPassword.showModal();
+      return;
+    }
+    
+    const allowed = await checkAuth(); 
+    if (allowed) await loadDashboard(); 
+  }
   boot();
 })();
