@@ -59,7 +59,7 @@ h1 { max-width: 680px; margin-bottom: .55rem; font-size: clamp(2rem, 4vw, 3.45re
 h1 em { color: var(--ana); font-style: normal; }
 .alt-baslik { margin-bottom: 0; color: var(--muted); font-size: 1rem; }
 .karsilama-eylemleri { display: flex; align-items: center; gap: .85rem; padding-bottom: .1rem; }
-.son-guncelleme { white-space: nowrap; color: var(--muted); font-size: .76rem; }
+.son-guncelleme { white-space: nowrap; color: var(--muted); font-size: .875rem; }
 .birincil-dugme, .ikincil-dugme { min-height: 42px; display: inline-flex; justify-content: center; align-items: center; gap: .45rem; border-radius: 10px; padding: .65rem 1rem; text-decoration: none; transition: transform .18s, box-shadow .18s, background .18s; font-weight: 750; font-size: .83rem; }
 .birincil-dugme { border: 1px solid var(--ana); background: var(--ana); color: #fff; box-shadow: 0 7px 15px rgba(71, 107, 240, .2); }
 .birincil-dugme:hover { background: var(--ana-koyu); transform: translateY(-1px); box-shadow: 0 10px 18px rgba(71, 107, 240, .25); }
