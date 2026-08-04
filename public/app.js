@@ -747,6 +747,10 @@
       elements.tagSelectionList.innerHTML = "<p style='color:var(--muted); font-size:0.875rem;'>Henüz hiç etiket oluşturmadınız.</p>";
     }
     
+    if (elements.deleteAllTagsButton) {
+      elements.deleteAllTagsButton.style.display = (state.tags && state.tags.length > 0) ? "block" : "none";
+    }
+    
     elements.tagSelectionDialog.showModal();
   }
 
