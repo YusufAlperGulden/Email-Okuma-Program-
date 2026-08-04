@@ -257,6 +257,11 @@
         : owner ? `${owner} için öncelikler yapay zekâ ile sıralandı.` : "Gelen kutundaki önemli konular yapay zekâ ile sıralandı.";
     const warning = state.connection?.lastAnalysisWarning;
     elements.updated.title = warning || "";
+    if (state.connection?.syncInProgress) {
+      elements.updated.classList.add("sync-aktif");
+    } else {
+      elements.updated.classList.remove("sync-aktif");
+    }
     elements.updated.textContent = state.isDemo
       ? "Örnek veriler"
       : state.connection?.syncInProgress

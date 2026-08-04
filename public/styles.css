@@ -131,3 +131,24 @@ body.koyu { --zemin: #101729; --yuzey: #172136; --yuzey-soluk: #202d46; --metin:
 body.koyu #ayarProfilTemizle { color: #ffbdc7; border-color: #7a3b45; }
 body.koyu #ayarProfilTemizle:hover { background: #351a20; color: #ffe0e4; border-color: #984c58; }
 .profil-onizleme { width: 256px; height: 256px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 1px solid var(--cizgi); box-shadow: var(--golge); }
+
+@keyframes donmeAnimasyonu {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+.son-guncelleme.sync-aktif {
+  position: relative;
+  padding-right: 1.2rem;
+}
+.son-guncelleme.sync-aktif::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--ana);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: donmeAnimasyonu 1s linear infinite;
+}
