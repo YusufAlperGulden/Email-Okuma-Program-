@@ -4,7 +4,7 @@
 
 
   const state = {
-    emails: [], stats: {}, connection: {}, activeFilter: "all", query: "", isDemo: false,
+    emails: [], stats: {}, connection: {}, activeFilter: "all", sortBy: "ai", query: "", isDemo: false,
     currentSnoozeId: null, authChecked: false, loginRequired: false, user: null,
     authMode: "login", dashboardRefreshTimer: null, desktopOAuthTimer: null,
     desktopOAuthPending: false, desktopSettings: null, desktopSettingsRequired: false, localMode: false
@@ -198,6 +198,15 @@
     else emails = emails.filter(email => email.status !== "done" && email.status !== "archived" && email.status !== "trashed" && !isSnoozedForLater(email));
     const query = state.query.trim().toLocaleLowerCase("tr-TR");
     if (query) emails = emails.filter(email => [email.sender, email.subject, email.summary, email.importanceReason, email.action].join(" ").toLocaleLowerCase("tr-TR").includes(query));
+    if (state.sortBy === "newest") {
+      return emails.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
+    } else if (state.sortBy === "oldest") {
+      return emails.sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt));
+    } else if (state.sortBy === "sender") {
+      return emails.sort((a, b) => (a.sender || "").localeCompare(b.sender || ""));
+    }
+    
+    // Default: AI Priority
     const order = { action: 0, info: 1 };
     return emails.sort((a, b) => (order[a.category] ?? 3) - (order[b.category] ?? 3) || new Date(b.receivedAt) - new Date(a.receivedAt));
   }
@@ -769,7 +778,8 @@
   function bindEvents() {
     $$(".filtre").forEach(button => button.addEventListener("click", () => { state.activeFilter = button.dataset.filtre; render(); }));
     $$(".istatistik-karti").forEach(card => { const change = () => { state.activeFilter = card.dataset.filtre; render(); document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" }); }; card.addEventListener("click", change); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); change(); } }); });
-    elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
+    elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); });
+      if ($("#siralamaSecimi")) $("#siralamaSecimi").addEventListener("change", (e) => { state.sortBy = e.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
     elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taşındı.", "Çöp kutusuna taşınamadı.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arşive kaldırıldı.", "Arşivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yıldızlandı.", "Yıldızlanamadı.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arşivden çıkarıldı.", "İşlem başarısız.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta çöp kutusundan çıkarıldı.", "İşlem başarısız.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());

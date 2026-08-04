@@ -120,10 +120,21 @@
               <p class="goz-bant">AKILLI GELEN KUTUSU</p>
               <h2 id="postaBasligi">Öncelik sırası</h2>
             </div>
-            <label class="arama" for="aramaGirdisi">
-              <span aria-hidden="true">⌕</span>
-              <input id="aramaGirdisi" type="search" placeholder="Posta ara…" autocomplete="off" />
-            </label>
+            <div class="arama-siralama-grubu">
+              <label class="arama" for="aramaGirdisi">
+                <span aria-hidden="true">⌕</span>
+                <input id="aramaGirdisi" type="search" placeholder="Posta ara…" autocomplete="off" />
+              </label>
+              <div class="siralama-kapsayici">
+                <span class="siralama-ikon" aria-hidden="true">⇅</span>
+                <select id="siralamaSecimi" class="siralama-secim" aria-label="E-postaları sırala">
+                  <option value="ai">Yapay Zeka Önceliği</option>
+                  <option value="newest">Tarih (En Yeni)</option>
+                  <option value="oldest">Tarih (En Eski)</option>
+                  <option value="sender">Gönderen (A-Z)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div class="filtreler" role="toolbar" aria-label="E-posta filtresi">

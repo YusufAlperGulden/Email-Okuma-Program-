@@ -208,3 +208,14 @@ body.koyu #ayarProfilTemizle:hover { background: #351a20; color: #ffe0e4; border
   0% { left: -50%; }
   100% { left: 100%; }
 }
+
+/* Sorting */
+.arama-siralama-grubu { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; justify-content: flex-end; width: 100%; max-width: 500px; }
+.arama { max-width: none; flex: 1; min-width: 180px; }
+.siralama-kapsayici { position: relative; flex: 1; min-width: 160px; max-width: 200px; }
+.siralama-ikon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.siralama-secim { width: 100%; padding: .65rem 1rem .65rem 2.4rem; background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 999px; color: var(--metin); font-size: .82rem; font-family: inherit; font-weight: 500; appearance: none; outline: none; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+.siralama-secim:hover, .siralama-secim:focus { border-color: var(--ana); }
+.koyu .siralama-secim { background: var(--yuzey); color: var(--metin); border-color: var(--cizgi); }
+.koyu .siralama-secim:hover, .koyu .siralama-secim:focus { border-color: var(--ana); }
+@media (max-width: 620px) { .arama-siralama-grubu { flex-direction: column; max-width: 100%; } .siralama-kapsayici { max-width: 100%; width: 100%; } }
