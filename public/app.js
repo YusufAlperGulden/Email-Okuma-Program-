@@ -207,6 +207,7 @@
     const values = { today: c.today, action: c.action, info: c.info };
     $("#bugunSayisi").textContent = values.today; $("#aksiyonSayisi").textContent = values.action; $("#bilgiSayisi").textContent = values.info;
     if ($("#tamamlananSayisi")) $("#tamamlananSayisi").textContent = c.done;
+    if ($("#yildizlananSayisi")) $("#yildizlananSayisi").textContent = c.starred;
     $("#bugunAlt").textContent = values.today === 1 ? "yeni e-posta" : "yeni e-posta";
     $("#aksiyonAlt").textContent = values.action ? "yanıt bekliyor" : "bekleyen yok";
     
