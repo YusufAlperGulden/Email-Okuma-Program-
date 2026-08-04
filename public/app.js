@@ -857,7 +857,7 @@
       "Bugün gerçekten <em>önemli</em> olanlar.",
       "Gelen kutunuzda kontrol <em>sizde</em>.",
       "Sadece <em>odaklanmanız</em> gerekenler.",
-      "Zamanınızı <em>geri</em> kazanın."
+      "Zamanınızı <em>geri kazanın.</em>"
     ];
     const baslik = document.getElementById("baslik");
     if (baslik) {
