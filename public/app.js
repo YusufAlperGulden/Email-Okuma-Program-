@@ -20,7 +20,7 @@
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
     accountUsername: $("#kullaniciAdiGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
     snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), accountAvatarLetters: $("#oturumDugmesiHarfler"), accountAvatarImage: $("#oturumDugmesiResim"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsProfilePreview: $("#ayarProfilOnizleme"), settingsProfileInput: $("#ayarProfilGirdisi"), settingsProfileClear: $("#ayarProfilTemizle"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
-    desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGoogleClientId: $("#masaustuGoogleIstemciGirdisi"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet"),
+    desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet"),
     filterContainer: $("#filtrelerContainer"), manageTagsButton: $("#etiketYonetimiDugmesi"), tagManagerDialog: $("#etiketYoneticiPenceresi"), tagManagerForm: $("#etiketYoneticiFormu"), tagManagerClose: $("#etiketYoneticiKapat"), tagManagerBack: $("#etiketYoneticiGeri"), tagNameInput: $("#yeniEtiketAdi"), tagColorOptions: $("#renkSecenekleri"), tagManagerError: $("#etiketYoneticiHatasi"), tagSelectionDialog: $("#etiketSecimPenceresi"), tagSelectionForm: $("#etiketSecimFormu"), tagSelectionClose: $("#etiketSecimKapat"), tagSelectionList: $("#etiketListesiKapsayici"), tagSelectionError: $("#etiketSecimHatasi"), tagSelectionNewTagButton: $("#yeniEtiketYaratDugmesi"), deleteAllTagsButton: $("#tumEtiketleriSilDugmesi")
   };
 
@@ -842,7 +842,6 @@
       state.desktopSettingsRequired = Boolean(required);
       state.desktopSettings = await desktopBridge.getSettings();
       const settings = state.desktopSettings;
-      elements.desktopGoogleClientId.value = settings.googleClientId || "";
       elements.desktopGeminiKey.value = "";
       elements.desktopClearGeminiKey.checked = false;
       elements.desktopGeminiModel.value = settings.geminiModel || "gemini-2.5-flash-lite";
@@ -850,11 +849,8 @@
       elements.desktopGeminiStatus.textContent = settings.geminiConfigured
         ? "Bir Gemini anahtarı güvenli yerel depoda kayıtlı. Değiştirmek için yeni anahtarı yaz veya kaldırma kutusunu işaretle."
         : "Gemini anahtarı isteğe bağlıdır; boş bırakılırsa yerel önceliklendirme kullanılır.";
-      elements.desktopSettingsError.textContent = required && !settings.googleConfigured
-        ? "Gmail bağlamak için önce Google Desktop OAuth istemci kimliğini kaydedin."
-        : "";
+
       if (!elements.desktopSettingsDialog.open) elements.desktopSettingsDialog.showModal();
-      window.setTimeout(() => elements.desktopGoogleClientId.focus(), 30);
     } catch (error) {
       notify(error.message || "Masaüstü ayarları açılamadı.", "uyari");
     }
@@ -862,16 +858,10 @@
 
   async function saveDesktopSettings() {
     if (!isDesktop()) return;
-    if (state.desktopSettingsRequired && !elements.desktopGoogleClientId.value.trim()) {
-      elements.desktopSettingsError.textContent = "Gmail bağlamak için Google Desktop OAuth istemci kimliği gerekli.";
-      elements.desktopGoogleClientId.focus();
-      return;
-    }
     elements.desktopSettingsSave.disabled = true;
     elements.desktopSettingsError.textContent = "";
     try {
       state.desktopSettings = await desktopBridge.saveSettings({
-        googleClientId: elements.desktopGoogleClientId.value,
         geminiApiKey: elements.desktopGeminiKey.value,
         clearGeminiKey: elements.desktopClearGeminiKey.checked,
         geminiModel: elements.desktopGeminiModel.value,
@@ -920,10 +910,6 @@
       stopDesktopOAuthPolling();
       render();
       notify("Google yetkilendirmesi için bekleme iptal edildi. İstersen tekrar deneyebilirsin.", "uyari");
-      return;
-    }
-    if (isDesktop() && !state.desktopSettings?.googleConfigured) {
-      await showDesktopSettings(true);
       return;
     }
     if (elements.setupLink.disabled) { notify("Gmail bağlantısı için sunucuda Google OAuth bilgileri yapılandırılmalı.", "uyari"); return; }

@@ -85,7 +85,7 @@ function configureDesktopRuntime(origin, port) {
     // Keep the URI at the loopback origin, which is the documented form for
     // installed Windows applications.
     GOOGLE_REDIRECT_URI: origin,
-    GOOGLE_CLIENT_ID: desktopSettings.googleClientId,
+    GOOGLE_CLIENT_ID: '464475479751-69cv3pi4jmuioid4i3df5fidrejmqp0a.apps.googleusercontent.com',
     GOOGLE_CLIENT_SECRET: '',
     GEMINI_API_KEY: desktopSettings.geminiApiKey,
     GEMINI_MODEL: desktopSettings.geminiModel,
@@ -164,8 +164,10 @@ function registerIpcHandlers() {
     const oauthUrl = new URL('/auth/google', dashboardOrigin);
     const email = normaliseEmailHint(emailHint);
     if (email) oauthUrl.searchParams.set('email', email);
+    const cookies = await session.defaultSession.cookies.get({ url: dashboardOrigin });
+    const cookieHeader = cookies.map(c => `${c.name}=${c.value}`).join('; ');
     const response = await fetch(oauthUrl, {
-      headers: { 'X-Odak-Desktop-Token': localAccessToken },
+      headers: { 'X-Odak-Desktop-Token': localAccessToken, 'Cookie': cookieHeader },
       redirect: 'manual'
     });
     if (response.status !== 302) {
@@ -332,8 +334,7 @@ function normaliseAutoSyncMinutes(value) {
 
 function publicSettings(value) {
   return {
-    googleClientId: value.googleClientId,
-    googleConfigured: Boolean(value.googleClientId),
+    googleConfigured: true,
     geminiConfigured: Boolean(value.geminiApiKey),
     geminiModel: value.geminiModel,
     autoSyncMinutes: value.autoSyncMinutes
