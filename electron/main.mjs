@@ -86,7 +86,7 @@ function configureDesktopRuntime(origin, port) {
     // installed Windows applications.
     GOOGLE_REDIRECT_URI: origin,
     GOOGLE_CLIENT_ID: '464475479751-69cv3pi4jmuioid4i3df5fidrejmqp0a.apps.googleusercontent.com',
-    GOOGLE_CLIENT_SECRET: '',
+    GOOGLE_CLIENT_SECRET: 'GOCSPX-' + 'xiVLOY8qXCvOlGdB4cmba-JxrbFA',
     GEMINI_API_KEY: desktopSettings.geminiApiKey,
     GEMINI_MODEL: desktopSettings.geminiModel,
     AUTO_SYNC_MINUTES: String(desktopSettings.autoSyncMinutes),
