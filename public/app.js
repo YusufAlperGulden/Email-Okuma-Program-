@@ -47,7 +47,9 @@
       status: String(email.status || "open").toLowerCase(),
       originalUrl: email.originalUrl || email.url || null,
       snoozedUntil: email.snoozedUntil || email.snoozeUntil || null,
-      tags: Array.isArray(email.tags) ? email.tags : []
+      tags: Array.isArray(email.tags) ? email.tags : [],
+      labels: Array.isArray(email.labels) ? email.labels : [],
+      bodyText: email.bodyText || ""
     };
   }
 
