@@ -523,8 +523,22 @@
 
   function copySummary(id) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
-    const text = "Konu: " + email.subject + "\nOzet: " + email.summary + "\nAksiyon: " + email.action;
-    navigator.clipboard.writeText(text).then(() => notify("Özet kopyalandı.", "basari")).catch(() => notify("Kopyalanamadı.", "uyari"));
+    const text = email.bodyText || email.snippet || "Metin bulunamadı.";
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => notify("E-posta metni kopyalandı.", "basari")).catch(() => notify("Kopyalanamadı.", "uyari"));
+    } else {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        notify("E-posta metni kopyalandı.", "basari");
+      } catch (err) {
+        notify("Kopyalanamadı.", "uyari");
+      }
+    }
   }
 
   function defaultSnoozeValue() { const date = new Date(Date.now() + 24 * 60 * 60 * 1000); date.setMinutes(0, 0, 0); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }

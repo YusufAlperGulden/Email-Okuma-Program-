@@ -896,7 +896,7 @@ async function archiveEmail(id, req, res, userId) {
     const store = await readStore(userId);
     const email = store.emails.find((candidate) => candidate.id === id);
     if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
-    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/modify`, { removeLabelIds: ['INBOX'] });
+    await gmailPostRequest(userId, `/gmail/v1/users/me/threads/${encodeURIComponent(email.threadId || email.id)}/modify`, { removeLabelIds: ['INBOX'] });
     email.status = 'archived';
     email.updatedAt = new Date().toISOString();
     await writeStore(userId, store, {});
@@ -909,7 +909,7 @@ async function archiveEmail(id, req, res, userId) {
     const store = await readStore(userId);
     const email = store.emails.find((candidate) => candidate.id === id);
     if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
-    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/modify`, { addLabelIds: ['INBOX'] });
+    await gmailPostRequest(userId, `/gmail/v1/users/me/threads/${encodeURIComponent(email.threadId || email.id)}/modify`, { addLabelIds: ['INBOX'] });
     email.status = 'pending';
     email.updatedAt = new Date().toISOString();
     await writeStore(userId, store, {});
@@ -920,7 +920,7 @@ async function archiveEmail(id, req, res, userId) {
     const store = await readStore(userId);
     const email = store.emails.find((candidate) => candidate.id === id);
     if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
-    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/trash`, {});
+    await gmailPostRequest(userId, `/gmail/v1/users/me/threads/${encodeURIComponent(email.threadId || email.id)}/trash`, {});
     email.status = 'trashed';
     email.updatedAt = new Date().toISOString();
     await writeStore(userId, store, {});
@@ -931,7 +931,7 @@ async function archiveEmail(id, req, res, userId) {
     const store = await readStore(userId);
     const email = store.emails.find((candidate) => candidate.id === id);
     if (!email) throw new HttpError(404, 'E-posta bulunamadı.', 'email_not_found');
-    await gmailPostRequest(userId, `/gmail/v1/users/me/messages/${encodeURIComponent(email.id)}/untrash`, {});
+    await gmailPostRequest(userId, `/gmail/v1/users/me/threads/${encodeURIComponent(email.threadId || email.id)}/untrash`, {});
     email.status = 'pending';
     email.updatedAt = new Date().toISOString();
     await writeStore(userId, store, {});
@@ -1768,8 +1768,7 @@ function visibleEmails(emails) {
 }
 
 function visibleEmail(email) {
-  const { bodyText, ...safeEmail } = email;
-  return safeEmail;
+  return email;
 }
 
 function sortEmails(emails) {
