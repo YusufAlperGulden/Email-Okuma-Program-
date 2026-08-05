@@ -569,9 +569,13 @@ async function finishGoogleOAuth(url, res, session) {
     [hashSecret(state)]
   );
   const savedState = usedState.rows[0];
-  if (!savedState || new Date(savedState.expires_at).valueOf() < Date.now() || savedState.session_hash !== session.idHash || savedState.user_id !== session.userId) {
+  const isValidSession = CONFIG.localMode
+    ? true
+    : (savedState && session && savedState.session_hash === session.idHash && savedState.user_id === session.userId);
+  if (!savedState || new Date(savedState.expires_at).valueOf() < Date.now() || !isValidSession) {
     throw new HttpError(400, 'Google yetkilendirme isteği geçersiz veya süresi dolmuş.', 'invalid_oauth_state');
   }
+  const userId = CONFIG.localMode ? savedState.user_id : session.userId;
   const failure = url.searchParams.get('error');
   if (failure) {
     if (CONFIG.localMode) return sendText(res, 200, 'Google yetkilendirmesi iptal edildi. Bu sekmeyi kapatıp OdakPosta uygulamasına dönebilirsiniz.');
@@ -603,7 +607,7 @@ async function finishGoogleOAuth(url, res, session) {
   if (!profile?.sub || !normalizeAccountEmail(profile.email) || profile.email_verified === false) {
     throw new HttpError(502, 'Google hesabının doğrulanmış e-posta bilgisi alınamadı.', 'google_profile_unavailable');
   }
-  await writeGmailConnection(session.userId, {
+  await writeGmailConnection(userId, {
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
     expiresAt: Date.now() + Math.max(0, Number(token.expires_in || 3600) - 60) * 1000,
@@ -613,7 +617,7 @@ async function finishGoogleOAuth(url, res, session) {
   }, { subject: profile.sub, email: normalizeAccountEmail(profile.email) });
   // Do not keep the OAuth callback page open while up to 100 messages are
   // summarized. The dashboard exposes this job state and refreshes itself.
-  void runGmailSync(session.userId, { limit: 100, force: false }).catch((error) => {
+  void runGmailSync(userId, { limit: 100, force: false }).catch((error) => {
     console.error('Initial Gmail sync failed:', error.message);
   });
   if (CONFIG.localMode) {
