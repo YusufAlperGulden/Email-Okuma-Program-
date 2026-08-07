@@ -1,9 +1,9 @@
-name: Upload v0.6.0 EXE
+name: Upload v0.6.0 EXE Fixed
 
 on:
   push:
     paths:
-      - '.github/workflows/upload-exe.yml'
+      - '.github/workflows/upload-exe-fixed.yml'
 
 jobs:
   build-and-upload:
@@ -17,6 +17,11 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npx electron-builder --win nsis --x64
-      - env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload v0.6.0 dist/OdakPosta-Setup-0.6.0.exe --clobber
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.6.0
+          files: |
+            dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
