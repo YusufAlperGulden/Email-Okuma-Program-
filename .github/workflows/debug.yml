@@ -1,0 +1,36 @@
+name: Final Debug
+
+on:
+  push:
+    paths:
+      - '.github/workflows/debug.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npx electron-builder --win nsis --x64 > build_log.txt 2>&1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Debug Dist
+        run: |
+          dir dist >> build_log.txt 2>&1
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload v0.6.0 dist/OdakPosta-Setup-0.6.0.exe --clobber >> build_log.txt 2>&1
+      - name: Report Error
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $log = Get-Content build_log.txt -Raw
+          gh issue create --title "Build Log" --body "\`\`\`$log\`\`\`"
