@@ -994,8 +994,25 @@
     const email = state.emails.find(item => item.id === id); if (!email) return;
     const text = email.bodyText || email.snippet || email.summary || "Metin bulunamadı.";
     const prompt = `Lütfen şu e-postayı dikkatlice oku ve Türkçe olarak özetle:\n\n${text}`;
-    const url = `https://www.perplexity.ai/search?q=${encodeURIComponent(prompt)}`;
-    window.open(url, '_blank');
+    
+    const textArea = document.createElement("textarea");
+    textArea.value = prompt;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      showNotification("Metin kopyalandı! Yeni sekmede (CTRL+V) ile yapıştırın.", "success");
+    } catch (err) {
+      console.error('Kopyalama başarısız', err);
+      showNotification("Kopyalama başarısız oldu.", "error");
+    }
+    textArea.remove();
+    
+    window.open('https://chatgpt.com/', '_blank');
   }
 
     elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".etiketle-dugmesi")) showTagSelection(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taşındı.", "Çöp kutusuna taşınamadı.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arşive kaldırıldı.", "Arşivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yıldızlandı.", "Yıldızlanamadı.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arşivden çıkarıldı.", "İşlem başarısız.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta çöp kutusundan çıkarıldı.", "İşlem başarısız.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); if (event.target.closest(".ozetle-dugmesi")) ozetle(card.dataset.id); });
