@@ -249,3 +249,20 @@ body.koyu #ayarProfilTemizle:hover { background: #351a20; color: #ffe0e4; border
     box-shadow: 0 0 15px rgba(253, 230, 138, 0.6);
     text-shadow: 0 0 5px rgba(253, 230, 138, 0.5);
 }
+
+/* Yeni Mesaj Penceresi Tam Ekran/Buyuk Gorunum */
+#composerPenceresi {
+  width: min(95vw, 1000px);
+  height: min(95vh, 800px);
+  max-height: none;
+}
+#composerFormu {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+#composerBody {
+  flex-grow: 1;
+  min-height: 200px !important;
+  resize: vertical;
+}
