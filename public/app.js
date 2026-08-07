@@ -22,7 +22,8 @@
     snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), accountAvatarLetters: $("#oturumDugmesiHarfler"), accountAvatarImage: $("#oturumDugmesiResim"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsProfilePreview: $("#ayarProfilOnizleme"), settingsProfileInput: $("#ayarProfilGirdisi"), settingsProfileClear: $("#ayarProfilTemizle"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
     desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet"),
     filterContainer: $("#filtrelerContainer"), manageTagsButton: $("#etiketYonetimiDugmesi"), tagManagerDialog: $("#etiketYoneticiPenceresi"), tagManagerClose: $("#etiketYoneticiKapat"), tagManagerBack: $("#etiketYoneticiGeri"), tagNameInput: $("#yeniEtiketAdi"), tagColorOptions: $("#renkSecenekleri"), tagManagerError: $("#etiketYoneticiHatasi"), tagSelectionDialog: $("#etiketSecimPenceresi"), tagSelectionForm: $("#etiketSecimFormu"), tagSelectionClose: $("#etiketSecimKapat"), tagSelectionList: $("#etiketListesiKapsayici"), tagSelectionError: $("#etiketSecimHatasi"), tagSelectionNewTagButton: $("#yeniEtiketYaratDugmesi"), deleteAllTagsButton: $("#tumEtiketleriSilDugmesi"),
-    composer: $("#composerPenceresi"), composerForm: $("#composerFormu"), composerTo: $("#composerTo"), composerSubject: $("#composerSubject"), composerBody: $("#composerBody"), composerAttachments: $("#composerAttachments"), composerInReplyTo: $("#composerInReplyTo"), composerReferences: $("#composerReferences"), composerSubmit: $("#composerGonder"), composerCancel: $("#composerIptal"), composerClose: $("#composerKapat"), yeniEpostaDugmesi: $("#yeniEpostaDugmesi")
+    composer: $("#composerPenceresi"), composerForm: $("#composerFormu"), composerTo: $("#composerTo"), composerSubject: $("#composerSubject"), composerBody: $("#composerBody"), composerAttachments: $("#composerAttachments"), composerInReplyTo: $("#composerInReplyTo"), composerReferences: $("#composerReferences"), composerSubmit: $("#composerGonder"), composerCancel: $("#composerIptal"), composerClose: $("#composerKapat"), yeniEpostaDugmesi: $("#yeniEpostaDugmesi"),
+    renkPaletiDugmesi: $("#renkPaletiDugmesi"), renkPaletiMenusu: $("#renkPaletiMenusu"), renkSecenekleri: $(".renk-secenek")
   };
 
   let selectedProfilePicture = undefined;
@@ -1047,6 +1048,14 @@
   function initialiseTheme() {
     const saved = localStorage.getItem("odak-posta-tema"); const dark = saved ? saved === "dark" : true;
     document.body.classList.toggle("koyu", dark); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç");
+    const savedColor = localStorage.getItem("odakposta-renk");
+    if (savedColor && savedColor !== "varsayilan") { document.body.setAttribute("data-renk", savedColor); }
+    if (elements.renkSecenekleri) {
+      elements.renkSecenekleri.forEach(btn => {
+        if (btn.dataset.renk === (savedColor || "varsayilan")) btn.classList.add("aktif");
+        else btn.classList.remove("aktif");
+      });
+    }
   }
 
   function bindEvents() {
@@ -1180,6 +1189,32 @@ elements.epostaEkleDugmesi?.addEventListener("click", (e) => {
     if (elements.settingsDelete) { elements.settingsDelete.addEventListener("click", showDeleteAccount); }
     elements.desktopSettingsButton.addEventListener("click", () => { void showDesktopSettings(); }); elements.desktopSettingsForm.addEventListener("submit", event => { event.preventDefault(); void saveDesktopSettings(); }); elements.desktopSettingsClose.addEventListener("click", () => elements.desktopSettingsDialog.close());
     elements.theme.addEventListener("click", () => { const dark = !document.body.classList.contains("koyu"); document.body.classList.toggle("koyu", dark); localStorage.setItem("odak-posta-tema", dark ? "dark" : "light"); elements.theme.setAttribute("aria-label", dark ? "Açık temayı aç" : "Koyu temayı aç"); });
+    
+    if (elements.renkPaletiDugmesi && elements.renkPaletiMenusu) {
+      elements.renkPaletiDugmesi.addEventListener("click", (e) => {
+        e.stopPropagation();
+        elements.renkPaletiMenusu.hidden = !elements.renkPaletiMenusu.hidden;
+      });
+      document.addEventListener("click", (e) => {
+        if (!elements.renkPaletiMenusu.hidden && !e.target.closest('.tema-renk-kapsayici')) {
+          elements.renkPaletiMenusu.hidden = true;
+        }
+      });
+      elements.renkSecenekleri.forEach(btn => {
+        btn.addEventListener("click", () => {
+          const secilenRenk = btn.dataset.renk;
+          if (secilenRenk === "varsayilan") {
+            document.body.removeAttribute("data-renk");
+          } else {
+            document.body.setAttribute("data-renk", secilenRenk);
+          }
+          localStorage.setItem("odakposta-renk", secilenRenk);
+          elements.renkSecenekleri.forEach(b => b.classList.remove("aktif"));
+          btn.classList.add("aktif");
+          elements.renkPaletiMenusu.hidden = true;
+        });
+      });
+    }
     elements.account.addEventListener("click", () => { if (state.loginRequired) showLogin(); else if (state.authChecked) showAccountSettings(); });
     elements.setupLink.addEventListener("click", connectGmail);
     elements.disconnectGmail.addEventListener("click", disconnectGmail);

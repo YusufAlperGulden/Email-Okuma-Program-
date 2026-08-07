@@ -2,6 +2,7 @@
 services:
   - type: web
     name: odak-kutusu
+    region: frankfurt
     runtime: node
     plan: free
     buildCommand: npm install
