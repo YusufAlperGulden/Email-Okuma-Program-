@@ -532,24 +532,45 @@
   function copySummary(id) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
     const text = email.bodyText || email.snippet || email.summary || "Metin bulunamadı.";
-    const fallbackCopy = () => {
-      try {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-        notify("E-posta metni kopyalandı.", "basari");
-      } catch (err) {
-        notify("Kopyalanamadı.", "uyari");
-      }
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => notify("E-posta metni kopyalandı.", "basari")).catch(() => fallbackCopy());
-    } else {
-      fallbackCopy();
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      notify("E-posta metni kopyalandı.", "basari");
+    } catch (err) {
+      notify("Kopyalanamadı.", "uyari");
     }
+    textArea.remove();
+  }
+
+  function ozetle(id) {
+    const email = state.emails.find(item => item.id === id); if (!email) return;
+    const text = email.bodyText || email.snippet || email.summary || "Metin bulunamadı.";
+    const prompt = `Lütfen şu e-postayı dikkatlice oku ve Türkçe olarak özetle:\n\n${text}`;
+    
+    const textArea = document.createElement("textarea");
+    textArea.value = prompt;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      notify("Metin kopyalandı! Yeni sekmede (CTRL+V) ile yapıştırın.", "basari");
+    } catch (err) {
+      notify("Kopyalanamadı.", "uyari");
+    }
+    textArea.remove();
+    
+    window.open('https://chatgpt.com/', '_blank');
   }
 
   function defaultSnoozeValue() { const date = new Date(Date.now() + 24 * 60 * 60 * 1000); date.setMinutes(0, 0, 0); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
@@ -990,13 +1011,6 @@
     $$(".istatistik-karti").forEach(card => { const change = () => { state.activeFilter = card.dataset.filtre; render(); document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" }); }; card.addEventListener("click", change); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); change(); } }); });
     elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); });
       if ($("#siralamaSecimi")) $("#siralamaSecimi").addEventListener("change", (e) => { state.sortBy = e.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
-  function ozetle(id) {
-    const email = state.emails.find(item => item.id === id); if (!email) return;
-    const text = email.bodyText || email.snippet || email.summary || "Metin bulunamadı.";
-    const prompt = `Lütfen şu e-postayı dikkatlice oku ve Türkçe olarak özetle:\n\n${text}`;
-    const url = `https://www.perplexity.ai/search?q=${encodeURIComponent(prompt)}`;
-    window.open(url, '_blank');
-  }
 
     elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".etiketle-dugmesi")) showTagSelection(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taşındı.", "Çöp kutusuna taşınamadı.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arşive kaldırıldı.", "Arşivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yıldızlandı.", "Yıldızlanamadı.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arşivden çıkarıldı.", "İşlem başarısız.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta çöp kutusundan çıkarıldı.", "İşlem başarısız.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); if (event.target.closest(".ozetle-dugmesi")) ozetle(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
