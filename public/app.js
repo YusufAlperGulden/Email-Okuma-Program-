@@ -552,8 +552,24 @@
   function ozetle(id) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
     const text = email.bodyText || email.snippet || email.summary || "Metin bulunamadı.";
-    const url = `https://www.perplexity.ai/search?q=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      notify("Metin panoya kopyalandı! Perplexity sayfasında (CTRL+V) ile yapıştırın.", "basari");
+    } catch (err) {
+      notify("Kopyalanamadı.", "uyari");
+    }
+    textArea.remove();
+    
+    window.open('https://www.perplexity.ai/', '_blank');
   }
 
   function defaultSnoozeValue() { const date = new Date(Date.now() + 24 * 60 * 60 * 1000); date.setMinutes(0, 0, 0); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
