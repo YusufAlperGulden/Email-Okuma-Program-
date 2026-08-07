@@ -54,7 +54,8 @@
       snoozedUntil: email.snoozedUntil || email.snoozeUntil || null,
       tags: Array.isArray(email.tags) ? email.tags : [],
       labels: Array.isArray(email.labels) ? email.labels : [],
-      bodyText: email.bodyText || ""
+      bodyText: email.bodyText || "",
+      snippet: email.snippet || ""
     };
   }
 
@@ -530,7 +531,7 @@
 
   function copySummary(id) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
-    const text = email.bodyText || email.snippet || "Metin bulunamadı.";
+    const text = email.bodyText || email.snippet || email.summary || "Metin bulunamadı.";
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => notify("E-posta metni kopyalandı.", "basari")).catch(() => notify("Kopyalanamadı.", "uyari"));
     } else {

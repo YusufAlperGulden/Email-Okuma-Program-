@@ -1364,7 +1364,7 @@ async function writeStore(userId, store, { expectedGoogleSubject = null } = {}) 
       }
     }
     for (const email of store.emails || []) {
-      const { bodyText: _bodyText, ...storedEmail } = email;
+      const storedEmail = email;
       const receivedAt = validDateString(email.receivedAt) ? new Date(email.receivedAt) : new Date();
       const snoozedUntil = validDateString(email.snoozedUntil) ? new Date(email.snoozedUntil) : null;
       const analyzedAt = validDateString(email.analyzedAt) ? new Date(email.analyzedAt) : null;
