@@ -115,6 +115,7 @@ function createMainWindow() {
     minWidth: 960,
     minHeight: 680,
     show: false,
+    title: `OdakPosta v${app.getVersion()}`,
     backgroundColor: '#101729',
     webPreferences: {
       preload: path.join(APP_DIRECTORY, 'preload.cjs'),
@@ -137,6 +138,11 @@ function createMainWindow() {
     event.preventDefault();
     if (isSafeExternalUrl(url)) void shell.openExternal(url);
   });
+  
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault();
+  });
+  
   void mainWindow.loadURL(dashboardOrigin);
 }
 
