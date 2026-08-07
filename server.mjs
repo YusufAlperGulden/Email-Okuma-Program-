@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { PGlite } from '@electric-sql/pglite';
 import pg from 'pg';
+import nodemailer from 'nodemailer';
 
 const { Pool } = pg;
 const scrypt = promisify(scryptCallback);
@@ -53,6 +54,10 @@ const CONFIG = Object.freeze({
   // A connected inbox should stay useful without requiring the user to press
   // refresh. Set AUTO_SYNC_MINUTES=0 explicitly to turn this off.
   autoSyncMinutes: toInteger(process.env.AUTO_SYNC_MINUTES, 15, 0, 1440),
+  smtpHost: process.env.SMTP_HOST || '',
+  smtpPort: toInteger(process.env.SMTP_PORT, 587, 1, 65535),
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
   production: process.env.NODE_ENV === 'production'
 });
 
@@ -217,6 +222,8 @@ async function route(req, res) {
     });
   }
   if (method === 'POST' && pathname === '/api/auth/register') return register(req, res);
+  if (method === 'POST' && pathname === '/api/auth/forgot-password') return forgotPassword(req, res);
+  if (method === 'POST' && pathname === '/api/auth/reset-password') return resetPassword(req, res);
   if (method === 'POST' && (pathname === '/api/auth/login' || pathname === '/api/login')) return login(req, res);
   if (method === 'POST' && pathname === '/api/logout') return logout(req, res, session);
 
@@ -314,11 +321,14 @@ async function register(req, res) {
     );
   } catch (error) {
     if (error instanceof HttpError) throw error;
-    if (error?.code === '23505') throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+    if (error?.code === '23505') {
+      if (error.constraint === 'app_users_email_key') throw new HttpError(409, 'Bu e-posta adresiyle zaten bir hesap var.', 'email_already_registered');
+      throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+    }
     throw error;
   }
   const session = await createSession({ userId, username });
-  return respondWithSession(res, session, { authenticated: true, user: { username } });
+  return respondWithSession(res, session, { authenticated: true, user: { username, email } });
 }
 
 async function login(req, res) {
@@ -346,7 +356,7 @@ async function login(req, res) {
   clearAuthAttempts(req, 'login');
   const username = user.username || user.email;
   const session = await createSession({ userId: user.id, username });
-  return respondWithSession(res, session, { authenticated: true, user: { username, profilePicture: user.profile_picture } });
+  return respondWithSession(res, session, { authenticated: true, user: { username, profilePicture: user.profile_picture, email: user.email } });
 }
 
 async function updateAccount(req, res, session) {
@@ -441,11 +451,14 @@ async function updateAccount(req, res, session) {
       );
     });
   } catch (error) {
-    if (error?.code === '23505') throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+    if (error?.code === '23505') {
+      if (error.constraint === 'app_users_email_key') throw new HttpError(409, 'Bu e-posta adresiyle zaten bir hesap var.', 'email_already_registered');
+      throw new HttpError(409, 'Bu kullanıcı adıyla zaten bir hesap var.', 'username_already_registered');
+    }
     throw error;
   }
   clearAuthAttempts(req, 'account_update');
-  return respondWithSession(res, refreshedSession, { authenticated: true, user: { username: nextUsername, profilePicture: nextProfilePicture } });
+  return respondWithSession(res, refreshedSession, { authenticated: true, user: { username: nextUsername, profilePicture: nextProfilePicture, email: user.email } });
 }
 
 async function logout(req, res, session) {
@@ -558,6 +571,97 @@ async function beginGoogleOAuth(url, res, session) {
   if (emailHint) params.set('login_hint', emailHint);
   res.writeHead(302, { Location: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
   res.end();
+}
+
+
+async function forgotPassword(req, res) {
+  requireDatabase();
+  assertSameOrigin(req);
+  assertAuthAttemptAllowed(req, 'forgot-password');
+  recordAuthFailure(req, 'forgot-password');
+  
+  const body = await readJson(req);
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Geçerli bir e-posta adresi girin.', 'invalid_email');
+
+  const userRes = await sql('SELECT id FROM app_users WHERE email = $1', [email]);
+  if (!userRes.rows[0]) {
+    return respondJson(res, 200, { success: true });
+  }
+
+  const userId = userRes.rows[0].id;
+  const token = randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60);
+
+  await sql(
+    'INSERT INTO password_resets (token, user_id, expires_at) VALUES ($1, $2, $3)',
+    [token, userId, expiresAt.toISOString()]
+  );
+
+  const resetLink = `${CONFIG.appOrigin}/?reset=${token}`;
+  
+  if (CONFIG.smtpHost) {
+    const transporter = nodemailer.createTransport({
+      host: CONFIG.smtpHost,
+      port: CONFIG.smtpPort,
+      secure: CONFIG.smtpPort === 465,
+      auth: { user: CONFIG.smtpUser, pass: CONFIG.smtpPass }
+    });
+    try {
+      await transporter.sendMail({
+        from: `"OdakPosta" <${CONFIG.smtpUser}>`,
+        to: email,
+        subject: 'OdakPosta - Parola Sıfırlama Talebi',
+        text: `Parolanızı sıfırlamak için aşağıdaki bağlantıya tıklayın:
+
+${resetLink}
+
+Bu talebi siz yapmadıysanız lütfen dikkate almayın.`,
+        html: `<p>Parolanızı sıfırlamak için aşağıdaki bağlantıya tıklayın:</p><p><a href="${resetLink}">${resetLink}</a></p><p>Bu talebi siz yapmadıysanız lütfen dikkate almayın.</p>`
+      });
+    } catch (e) {
+      console.error('SMTP Hatası:', e);
+      throw new HttpError(500, 'E-posta gönderilirken bir hata oluştu. Lütfen tekrar deneyin.', 'smtp_error');
+    }
+  } else {
+    console.log(`[MOCK EMAIL] To: ${email}
+Reset Link: ${resetLink}`);
+  }
+
+  return respondJson(res, 200, { success: true });
+}
+
+async function resetPassword(req, res) {
+  requireDatabase();
+  assertSameOrigin(req);
+  assertAuthAttemptAllowed(req, 'reset-password');
+  recordAuthFailure(req, 'reset-password');
+
+  const body = await readJson(req);
+  const token = typeof body.token === 'string' ? body.token.trim() : '';
+  const newPassword = typeof body.password === 'string' ? body.password : '';
+  const passwordConfirmation = typeof body.passwordConfirmation === 'string' ? body.passwordConfirmation : '';
+
+  if (!token) throw new HttpError(400, 'Geçersiz veya süresi dolmuş sıfırlama kodu.', 'invalid_token');
+  if (newPassword.length < PASSWORD_MIN_LENGTH) throw new HttpError(400, `Parola en az ${PASSWORD_MIN_LENGTH} karakter olmalıdır.`, 'password_too_short');
+  if (newPassword !== passwordConfirmation) throw new HttpError(400, 'Parolalar eşleşmiyor.', 'password_mismatch');
+
+  const resetRes = await sql(
+    'SELECT user_id, expires_at, used FROM password_resets WHERE token = $1',
+    [token]
+  );
+  if (!resetRes.rows[0]) throw new HttpError(400, 'Geçersiz veya süresi dolmuş sıfırlama kodu.', 'invalid_token');
+  
+  const reset = resetRes.rows[0];
+  if (reset.used) throw new HttpError(400, 'Bu sıfırlama kodu daha önce kullanılmış.', 'token_used');
+  if (new Date(reset.expires_at) < new Date()) throw new HttpError(400, 'Sıfırlama kodunun süresi dolmuş.', 'token_expired');
+
+  const hashed = await hashPassword(newPassword);
+  await sql('UPDATE app_users SET password_hash = $1 WHERE id = $2', [hashed, reset.user_id]);
+  await sql('UPDATE password_resets SET used = TRUE WHERE token = $1', [token]);
+  await sql('DELETE FROM app_sessions WHERE user_id = $1', [reset.user_id]);
+
+  return respondJson(res, 200, { success: true });
 }
 
 async function recordGmailConsent(req, res, userId) {

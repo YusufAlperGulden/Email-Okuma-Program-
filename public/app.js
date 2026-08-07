@@ -589,6 +589,8 @@
     elements.loginButton.textContent = registering ? "Hesap oluştur" : "Giriş yap";
     elements.authToggle.textContent = registering ? "Zaten hesabın var mı? Giriş yap" : "Hesabın yok mu? Hesap oluştur";
     elements.passwordConfirmationField.hidden = !registering;
+  if (elements.epostaAlani) elements.epostaAlani.hidden = !registering;
+  if (elements.epostaGirdisi) elements.epostaGirdisi.required = registering;
     elements.passwordConfirmation.required = registering;
     elements.password.autocomplete = registering ? "new-password" : "current-password";
     elements.loginError.textContent = message;
@@ -611,12 +613,12 @@
   }
 
   async function submitAuth() {
-    const username = elements.accountUsername.value.trim(); const password = elements.password.value; const passwordConfirmation = elements.passwordConfirmation.value;
-    if (!username || !password || (state.authMode === "register" && !passwordConfirmation)) return;
+    const username = elements.accountUsername.value.trim(); const password = elements.password.value; const passwordConfirmation = elements.passwordConfirmation.value; const email = elements.epostaGirdisi ? elements.epostaGirdisi.value.trim() : "";
+    if (!username || !password || (state.authMode === "register" && (!passwordConfirmation || !email))) return;
     elements.loginButton.disabled = true; elements.loginError.textContent = "";
     try {
       const registering = state.authMode === "register";
-      const result = await request(registering ? "/api/auth/register" : "/api/auth/login", { method: "POST", body: JSON.stringify({ username, password, passwordConfirmation }) });
+      const result = await request(registering ? "/api/auth/register" : "/api/auth/login", { method: "POST", body: JSON.stringify({ username, password, passwordConfirmation, email }) });
       state.user = result?.user || { username };
       elements.password.value = ""; elements.passwordConfirmation.value = ""; elements.login.close(); state.loginRequired = false; updateAccountButton(); await loadDashboard(); notify(registering ? "Hesabın oluşturuldu. Şimdi Gmail hesabını bağlayabilirsin." : "Giriş başarılı.", "basari");
     }
@@ -999,6 +1001,59 @@
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());
     elements.loginForm.addEventListener("submit", event => { event.preventDefault(); submitAuth(); }); elements.authToggle.addEventListener("click", () => showLogin(state.authMode === "login" ? "register" : "login")); $("#girisKapat").addEventListener("click", () => elements.login.close());
     elements.deleteAccountForm.addEventListener("submit", event => { event.preventDefault(); deleteAccount(); }); $("#hesapSilKapat").addEventListener("click", () => elements.deleteAccountDialog.close()); elements.deleteAccountButton.addEventListener("click", showDeleteAccount);
+
+elements.sifremiUnuttumDugmesi?.addEventListener("click", () => {
+  elements.login.close();
+  elements.sifreSifirlamaEposta.value = elements.accountUsername.value || "";
+  elements.sifreSifirlamaHatasi.textContent = "";
+  elements.sifreSifirlamaBasarili.style.display = "none";
+  elements.sifreSifirlama.showModal();
+});
+elements.sifreSifirlamaKapat?.addEventListener("click", () => elements.sifreSifirlama.close());
+
+elements.sifreSifirlamaForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = elements.sifreSifirlamaEposta.value.trim();
+  if (!email) return;
+  elements.sifreSifirlamaGonder.disabled = true;
+  elements.sifreSifirlamaHatasi.textContent = "";
+  try {
+    await request("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
+    elements.sifreSifirlamaBasarili.textContent = "Bağlantı gönderildi. Lütfen e-postanızı kontrol edin.";
+    elements.sifreSifirlamaBasarili.style.display = "block";
+  } catch(err) {
+    elements.sifreSifirlamaHatasi.textContent = err.message || "Bir hata oluştu.";
+  } finally {
+    elements.sifreSifirlamaGonder.disabled = false;
+  }
+});
+
+elements.yeniSifreForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const token = elements.yeniSifreForm.dataset.token;
+  const password = elements.yeniSifreGirdisi.value;
+  const passwordConfirmation = elements.yeniSifreTekrar.value;
+  if (!password || !passwordConfirmation) return;
+  elements.yeniSifreGonder.disabled = true;
+  elements.yeniSifreHatasi.textContent = "";
+  try {
+    await request("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password, passwordConfirmation }) });
+    elements.yeniSifre.close();
+    notify("Parolanız başarıyla güncellendi. Lütfen giriş yapın.", "basari");
+    showLogin("login");
+  } catch(err) {
+    elements.yeniSifreHatasi.textContent = err.message || "Bir hata oluştu.";
+  } finally {
+    elements.yeniSifreGonder.disabled = false;
+  }
+});
+
+elements.epostaEkleDugmesi?.addEventListener("click", (e) => {
+  e.preventDefault();
+  elements.settingsDialog.showModal();
+  setTimeout(() => elements.settingsUsername.focus(), 30);
+});
+
     
     if (elements.manageTagsButton) elements.manageTagsButton.addEventListener("click", showTagManager);
     if (elements.tagManagerForm) elements.tagManagerForm.addEventListener("submit", event => { event.preventDefault(); saveTag(); });
@@ -1108,7 +1163,15 @@
     }
   }
 
-  async function boot() { 
+  async function boot() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const resetToken = urlParams.get('reset');
+  if (resetToken && elements.yeniSifre) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    elements.yeniSifreForm.dataset.token = resetToken;
+    elements.yeniSifre.showModal();
+    return; // Don't load dashboard yet, let them reset password first
+  } 
     randomizeSlogan(); 
     initialiseTheme(); 
     bindEvents(); 
