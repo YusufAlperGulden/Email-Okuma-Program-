@@ -1027,16 +1027,17 @@ async function sendEmail(req, res, userId) {
     })) : []
   };
 
-  const mail = new nodemailer.MailMessage(mailOptions);
-  rawMessage = await mail.resolveAll().then(() => {
-    return new Promise((resolve, reject) => {
-      const chunks = [];
-      const stream = mail.message.createReadStream();
-      stream.on('data', chunk => chunks.push(chunk));
-      stream.on('end', () => resolve(Buffer.concat(chunks).toString('base64url')));
-      stream.on('error', reject);
-    });
+  const transporter = nodemailer.createTransport({
+    streamTransport: true,
+    newline: 'windows'
   });
+
+  const info = await transporter.sendMail(mailOptions);
+  const chunks = [];
+  for await (const chunk of info.message) {
+    chunks.push(chunk);
+  }
+  rawMessage = Buffer.concat(chunks).toString('base64url');
 
   await gmailPostRequest(userId, `/gmail/v1/users/me/messages/send`, {
     raw: rawMessage,
