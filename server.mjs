@@ -1099,6 +1099,11 @@ function normalizeGmailMessage(message) {
 }
 
 function extractGmailText(payload) {
+  const htmlPart = findMimePart(payload, 'text/html');
+  if (htmlPart?.body?.data) {
+    return htmlToText(decodeBase64Url(htmlPart.body.data));
+  }
+
   const candidates = [];
   const visit = (part) => {
     if (!part) return;
@@ -1106,9 +1111,7 @@ function extractGmailText(payload) {
     for (const child of part.parts || []) visit(child);
   };
   visit(payload);
-  if (candidates.length) return candidates.join('\n\n');
-  const htmlPart = findMimePart(payload, 'text/html');
-  return htmlPart?.body?.data ? htmlToText(decodeBase64Url(htmlPart.body.data)) : '';
+  return candidates.length ? candidates.join('\n\n') : '';
 }
 
 function findMimePart(part, mimeType) {
