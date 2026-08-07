@@ -1341,9 +1341,8 @@ async function readStore(userId) {
       email.analyzedAt = row.analyzed_at ? new Date(row.analyzed_at).toISOString() : email.analyzedAt || null;
       email.analysisSource = row.analysis_source || email.analysisSource || null;
       email.geminiAttemptedAt = row.gemini_attempted_at ? new Date(row.gemini_attempted_at).toISOString() : email.geminiAttemptedAt || null;
-      // v1 records might contain raw message text. Do not carry it forward:
-      // the next write upgrades the record to a summary-only encrypted payload.
-      delete email.bodyText;
+      // v1 records might contain raw message text. We now preserve it so the frontend
+      // can use it for copy and summarize functionalities without character limits.
       email.tags = tagMap.get(email.id) || [];
       emails.push(email);
     }
@@ -1649,7 +1648,7 @@ async function migrateLegacyEncryptedRecords() {
     try {
       const email = JSON.parse(decrypt(row.encrypted_payload, emailAad(row.user_id, row.gmail_message_id)));
       if (email.id && String(email.id) !== row.gmail_message_id) throw new Error('Email record id does not match its row');
-      const { bodyText: _bodyText, ...storedEmail } = email;
+      const storedEmail = email;
       await database.query(
         `UPDATE email_records
             SET encrypted_payload = $4, updated_at = NOW()
