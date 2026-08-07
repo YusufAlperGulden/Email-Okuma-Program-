@@ -70,7 +70,7 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 const COOKIE_NAME = 'odak_session';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 const OAUTH_TTL_MS = 1000 * 60 * 10;
-const MAX_BODY_BYTES = 24_000;
+const MAX_BODY_BYTES = 15_000_000;
 const PASSWORD_MIN_LENGTH = 8;
 const AUTH_WINDOW_MS = 1000 * 60 * 15;
 const AUTH_MAX_ATTEMPTS = 10;
@@ -272,6 +272,7 @@ async function route(req, res) {
   if (method === 'POST' && starMatch) return starEmail(starMatch[1], req, res, session.userId);
   const originalMatch = pathname.match(/^\/api\/emails\/([^/]+)\/original$/);
   if (method === 'GET' && originalMatch) return originalUrl(originalMatch[1], res, session.userId);
+  if (method === 'POST' && pathname === '/api/emails/send') return sendEmail(req, res, session.userId);
 
   if (method === 'GET' || method === 'HEAD') return serveStatic(pathname, res, method === 'HEAD');
   throw new HttpError(404, 'Bu adres bulunamadı.', 'not_found');
@@ -1004,6 +1005,47 @@ async function originalUrl(id, res, userId) {
   return sendJson(res, 200, { url: email.originalUrl || gmailOriginalUrl(email.threadId, email.id) });
 }
 
+async function sendEmail(req, res, userId) {
+  const body = await readJson(req);
+  if (!body.to || !body.subject || !body.body) throw new HttpError(400, 'Kime, konu ve mesaj alanları zorunludur.', 'missing_fields');
+
+  let rawMessage = '';
+  if (CONFIG.smtpHost) {
+    // If SMTP is enabled, we could use that. But here we always use Gmail API for OdakPosta's core feature.
+  }
+  
+  const mailOptions = {
+    to: body.to,
+    subject: body.subject,
+    text: body.body,
+    inReplyTo: body.inReplyTo,
+    references: body.references,
+    attachments: body.attachments ? body.attachments.map(att => ({
+      filename: att.name,
+      content: Buffer.from(att.data, 'base64'),
+      contentType: att.type
+    })) : []
+  };
+
+  const mail = new nodemailer.MailMessage(mailOptions);
+  rawMessage = await mail.resolveAll().then(() => {
+    return new Promise((resolve, reject) => {
+      const chunks = [];
+      const stream = mail.message.createReadStream();
+      stream.on('data', chunk => chunks.push(chunk));
+      stream.on('end', () => resolve(Buffer.concat(chunks).toString('base64url')));
+      stream.on('error', reject);
+    });
+  });
+
+  await gmailPostRequest(userId, `/gmail/v1/users/me/messages/send`, {
+    raw: rawMessage,
+    threadId: body.inReplyTo ? body.inReplyTo : undefined
+  });
+
+  return sendJson(res, 200, { ok: true });
+}
+
 async function archiveEmail(id, req, res, userId) {
     const store = await readStore(userId);
     const email = store.emails.find((candidate) => candidate.id === id);
@@ -1679,7 +1721,6 @@ async function initializeDatabase() {
   } catch (error) {
     database = null;
     databaseKind = null;
-    localSession = null;
     await closeDatabase(candidate).catch(() => {});
     throw error;
   }

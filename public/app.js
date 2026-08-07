@@ -15,13 +15,31 @@
   const desktopBridge = window.odakDesktop || null;
   const elements = {
     connection: $("#baglantiDurumu"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), gmailConsentError: $("#gmailOnayHatasi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
+(() => {
+  "use strict";
+
+
+
+  const state = {
+    emails: [], tags: [], stats: {}, connection: {}, activeFilter: "all", sortBy: "ai", query: "", isDemo: false,
+    currentSnoozeId: null, authChecked: false, loginRequired: false, user: null,
+    authMode: "login", dashboardRefreshTimer: null, desktopOAuthTimer: null,
+    desktopOAuthPending: false, desktopSettings: null, desktopSettingsRequired: false, localMode: false
+  };
+
+  const $ = (selector, scope = document) => scope.querySelector(selector);
+  const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
+  const desktopBridge = window.odakDesktop || null;
+  const elements = {
+    connection: $("#baglantiDurumu"), setup: $("#kurulumPaneli"), setupLink: $("#kurulumaGit"), gmailAddress: $("#gmailAdresGirdisi"), gmailConsent: $("#gmailVeriOnayi"), gmailConsentError: $("#gmailOnayHatasi"), connectedGmail: $("#bagliGmailPaneli"), connectedGmailDescription: $("#bagliGmailAciklamasi"), disconnectGmail: $("#gmailBaglantisiniKes"),
     welcome: $("#karsilamaMetni"), updated: $("#sonGuncelleme"), sync: $("#esitleDugmesi"), search: $("#aramaGirdisi"),
     list: $("#postaListesi"), listStatus: $("#listeDurumu"), template: $("#postaKartiSablonu"), focusTitle: $("#odakOzetiBaslik"),
     focusText: $("#odakOzetiMetni"), login: $("#girisPenceresi"), loginForm: $("#girisFormu"), loginError: $("#girisHatasi"), loginTitle: $("#girisBasligi"), loginDescription: $("#girisAciklamasi"),
     accountUsername: $("#kullaniciAdiGirdisi"), password: $("#parolaGirdisi"), passwordConfirmation: $("#parolaTekrarGirdisi"), passwordConfirmationField: $("#parolaTekrarAlani"), loginButton: $("#girisGonder"), authToggle: $("#kimlikModuDegistir"), snooze: $("#ertelePenceresi"), snoozeForm: $("#erteleFormu"),
     snoozeInput: $("#erteleTarihi"), snoozeError: $("#erteleHatasi"), notifications: $("#bildirimler"), theme: $("#temaDugmesi"), account: $("#oturumDugmesi"), accountAvatarLetters: $("#oturumDugmesiHarfler"), accountAvatarImage: $("#oturumDugmesiResim"), settingsButton: $("#hesapAyarlariDugmesi"), settingsDialog: $("#hesapAyarlariPenceresi"), settingsForm: $("#hesapAyarlariFormu"), settingsClose: $("#hesapAyarlariKapat"), settingsError: $("#hesapAyarlariHatasi"), settingsConfirm: $("#hesapAyarlariOnay"), settingsUsername: $("#ayarKullaniciAdiGirdisi"), settingsProfilePreview: $("#ayarProfilOnizleme"), settingsProfileInput: $("#ayarProfilGirdisi"), settingsProfileClear: $("#ayarProfilTemizle"), settingsCurrentPassword: $("#ayarMevcutParolaGirdisi"), settingsNewPassword: $("#ayarYeniParolaGirdisi"), settingsNewPasswordConfirmation: $("#ayarYeniParolaTekrarGirdisi"), settingsLogout: $("#hesapAyarlariCikis"), settingsDelete: $("#hesapAyarlariSil"), deleteAccountButton: $("#hesapSilDugmesi"), deleteAccountDialog: $("#hesapSilPenceresi"), deleteAccountForm: $("#hesapSilFormu"), deleteAccountPassword: $("#hesapSilParolaGirdisi"), deleteAccountError: $("#hesapSilHatasi"), deleteAccountConfirm: $("#hesapSilOnay"),
     desktopSettingsButton: $("#masaustuAyarDugmesi"), desktopSettingsDialog: $("#masaustuAyarPenceresi"), desktopSettingsForm: $("#masaustuAyarFormu"), desktopSettingsClose: $("#masaustuAyarKapat"), desktopGeminiKey: $("#masaustuGeminiAnahtarGirdisi"), desktopGeminiStatus: $("#masaustuGeminiDurumu"), desktopClearGeminiKey: $("#masaustuGeminiSil"), desktopGeminiModel: $("#masaustuGeminiModelGirdisi"), desktopAutoSync: $("#masaustuEsitlemeGirdisi"), desktopSettingsError: $("#masaustuAyarHatasi"), desktopSettingsSave: $("#masaustuAyarKaydet"),
-    filterContainer: $("#filtrelerContainer"), manageTagsButton: $("#etiketYonetimiDugmesi"), tagManagerDialog: $("#etiketYoneticiPenceresi"), tagManagerForm: $("#etiketYoneticiFormu"), tagManagerClose: $("#etiketYoneticiKapat"), tagManagerBack: $("#etiketYoneticiGeri"), tagNameInput: $("#yeniEtiketAdi"), tagColorOptions: $("#renkSecenekleri"), tagManagerError: $("#etiketYoneticiHatasi"), tagSelectionDialog: $("#etiketSecimPenceresi"), tagSelectionForm: $("#etiketSecimFormu"), tagSelectionClose: $("#etiketSecimKapat"), tagSelectionList: $("#etiketListesiKapsayici"), tagSelectionError: $("#etiketSecimHatasi"), tagSelectionNewTagButton: $("#yeniEtiketYaratDugmesi"), deleteAllTagsButton: $("#tumEtiketleriSilDugmesi")
+    filterContainer: $("#filtrelerContainer"), manageTagsButton: $("#etiketYonetimiDugmesi"), tagManagerDialog: $("#etiketYoneticiPenceresi"), tagManagerClose: $("#etiketYoneticiKapat"), tagManagerBack: $("#etiketYoneticiGeri"), tagNameInput: $("#yeniEtiketAdi"), tagColorOptions: $("#renkSecenekleri"), tagManagerError: $("#etiketYoneticiHatasi"), tagSelectionDialog: $("#etiketSecimPenceresi"), tagSelectionForm: $("#etiketSecimFormu"), tagSelectionClose: $("#etiketSecimKapat"), tagSelectionList: $("#etiketListesiKapsayici"), tagSelectionError: $("#etiketSecimHatasi"), tagSelectionNewTagButton: $("#yeniEtiketYaratDugmesi"), deleteAllTagsButton: $("#tumEtiketleriSilDugmesi"),
+    composer: $("#composerPenceresi"), composerForm: $("#composerFormu"), composerTo: $("#composerTo"), composerSubject: $("#composerSubject"), composerBody: $("#composerBody"), composerAttachments: $("#composerAttachments"), composerInReplyTo: $("#composerInReplyTo"), composerReferences: $("#composerReferences"), composerSubmit: $("#composerGonder"), composerCancel: $("#composerIptal"), composerClose: $("#composerKapat"), yeniEpostaDugmesi: $("#yeniEpostaDugmesi")
   };
 
   let selectedProfilePicture = undefined;
@@ -429,18 +447,75 @@
     catch (_) { notify("Özgün e-posta şu anda açılamıyor.", "uyari"); }
   }
 
-  
-    async function openReply(id) {
-      const email = state.emails.find(item => item.id === id); if (!email) return;
-      if (state.isDemo) { notify("Demo modunda e-posta yanıtlanamaz.", "uyari"); return; }
-      let to = email.sender || "";
-      const match = to.match(/<([^>]+)>/);
-      if (match) to = match[1];
-      let subject = email.subject || "";
-      if (!subject.toLowerCase().startsWith("re:")) subject = "Re: " + subject;
-      const url = `https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}`;
-      window.open(url, "_blank", "noopener,noreferrer");
+  function openComposer(to = "", subject = "", body = "", inReplyTo = "", references = "") {
+    elements.composerTo.value = to;
+    elements.composerSubject.value = subject;
+    elements.composerBody.value = body;
+    elements.composerInReplyTo.value = inReplyTo;
+    elements.composerReferences.value = references;
+    elements.composerAttachments.value = "";
+    elements.composer.showModal();
+  }
+
+  async function openReply(id) {
+    const email = state.emails.find(item => item.id === id); if (!email) return;
+    if (state.isDemo) { notify("Demo modunda e-posta yanıtlanamaz.", "uyari"); return; }
+    let to = email.sender || "";
+    const match = to.match(/<([^>]+)>/);
+    if (match) to = match[1];
+    let subject = email.subject || "";
+    if (!subject.toLowerCase().startsWith("re:")) subject = "Re: " + subject;
+    
+    // In a real app we'd fetch message-id and references from the original email, 
+    // but for now we just try our best.
+    openComposer(to, subject, `\n\n> ${email.summary}\n`);
+  }
+
+  elements.composerForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (state.isDemo) { notify("Demo modunda e-posta gönderilemez.", "uyari"); return; }
+    
+    elements.composerSubmit.disabled = true;
+    const to = elements.composerTo.value;
+    const subject = elements.composerSubject.value;
+    const body = elements.composerBody.value;
+    const inReplyTo = elements.composerInReplyTo.value;
+    const references = elements.composerReferences.value;
+    const files = elements.composerAttachments.files;
+    
+    const attachments = [];
+    if (files.length > 0) {
+      notify("Ekler işleniyor...", "bilgi");
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > 10 * 1024 * 1024) {
+          notify(`${file.name} çok büyük (maks 10MB).`, "hata");
+          elements.composerSubmit.disabled = false;
+          return;
+        }
+        const buffer = await file.arrayBuffer();
+        const base64 = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+        attachments.push({ name: file.name, type: file.type, data: base64 });
+      }
     }
+    
+    notify("E-posta gönderiliyor...", "bilgi");
+    try {
+      await request("/api/emails/send", {
+        method: "POST",
+        body: JSON.stringify({ to, subject, body, attachments, inReplyTo, references })
+      });
+      elements.composer.close();
+      notify("E-posta başarıyla gönderildi.", "basari");
+    } catch (err) {
+      notify("Gönderilemedi: " + err.message, "hata");
+    } finally {
+      elements.composerSubmit.disabled = false;
+    }
+  });
+
+  elements.composerCancel?.addEventListener("click", () => elements.composer.close());
+  elements.composerClose?.addEventListener("click", () => elements.composer.close());
 
     async function actionApi(id, endpoint, successMsg, failMsg, button) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
@@ -996,6 +1071,7 @@
     $$(".istatistik-karti").forEach(card => { const change = () => { state.activeFilter = card.dataset.filtre; render(); document.querySelector(".posta-alani").scrollIntoView({ behavior: "smooth", block: "start" }); }; card.addEventListener("click", change); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); change(); } }); });
     elements.search.addEventListener("input", event => { state.query = event.target.value; renderList(); });
       if ($("#siralamaSecimi")) $("#siralamaSecimi").addEventListener("change", (e) => { state.sortBy = e.target.value; renderList(); }); elements.sync.addEventListener("click", sync);
+    if (elements.yeniEpostaDugmesi) elements.yeniEpostaDugmesi.addEventListener("click", () => openComposer());
 
     elements.list.addEventListener("click", event => { const card = event.target.closest(".posta-karti"); if (!card) return; if (event.target.closest(".incele-dugmesi")) openOriginal(card.dataset.id); if (event.target.closest(".cevapla-dugmesi")) openReply(card.dataset.id); if (event.target.closest(".tamamla-dugmesi")) changeStatus(card.dataset.id, "done"); if (event.target.closest(".ertele-dugmesi")) showSnooze(card.dataset.id); if (event.target.closest(".etiketle-dugmesi")) showTagSelection(card.dataset.id); if (event.target.closest(".sil-dugmesi")) actionApi(card.dataset.id, "trash", "E-posta çöpe taşındı.", "Çöp kutusuna taşınamadı.", event.target.closest(".sil-dugmesi")); if (event.target.closest(".arsivle-dugmesi")) actionApi(card.dataset.id, "archive", "E-posta arşive kaldırıldı.", "Arşivlenemedi.", event.target.closest(".arsivle-dugmesi")); if (event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")) { actionApi(card.dataset.id, "star", "Yıldızlandı.", "Yıldızlanamadı.", event.target.closest(".yildizla-dugmesi") || event.target.closest(".yildiz-ikonu")); } if (event.target.closest(".takvim-dugmesi")) addToCalendar(card.dataset.id); if (event.target.closest(".arsivden-cikar-dugmesi")) actionApi(card.dataset.id, "unarchive", "E-posta arşivden çıkarıldı.", "İşlem başarısız.", event.target.closest(".arsivden-cikar-dugmesi")); if (event.target.closest(".copten-cikar-dugmesi")) actionApi(card.dataset.id, "untrash", "E-posta çöp kutusundan çıkarıldı.", "İşlem başarısız.", event.target.closest(".copten-cikar-dugmesi")); if (event.target.closest(".kopyala-dugmesi")) copySummary(card.dataset.id); if (event.target.closest(".ozetle-dugmesi")) ozetle(card.dataset.id); });
     elements.snoozeForm.addEventListener("submit", event => { event.preventDefault(); saveSnooze(); }); $("#erteleKapat").addEventListener("click", () => elements.snooze.close());

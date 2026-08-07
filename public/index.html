@@ -45,6 +45,9 @@
           </div>
           <div class="karsilama-eylemleri">
             <span class="son-guncelleme" id="sonGuncelleme">—</span>
+            <button class="birincil-dugme yeni-eposta-dugmesi" id="yeniEpostaDugmesi" type="button" style="background: var(--vurgu-yesil); border-color: var(--vurgu-yesil);">
+              <span aria-hidden="true">✎</span> Yeni E-posta
+            </button>
             <button class="birincil-dugme" id="esitleDugmesi" type="button">
               <span aria-hidden="true">↻</span> Postaları yenile
             </button>
@@ -335,6 +338,34 @@
         <input id="hesapSilParolaGirdisi" type="password" autocomplete="current-password" required />
         <p class="form-hatasi" id="hesapSilHatasi" aria-live="polite"></p>
         <button class="birincil-dugme tam-genislik tehlikeli-dugme" type="submit" id="hesapSilOnay">Hesabımı ve verilerimi sil</button>
+      </form>
+    </dialog>
+
+    <dialog class="giris-penceresi" id="composerPenceresi" aria-labelledby="composerBasligi">
+      <form method="dialog" id="composerFormu">
+        <button class="pencere-kapat" type="button" id="composerKapat" aria-label="E-posta yazma penceresini kapat">×</button>
+        <p class="goz-bant">YENİ MESAJ</p>
+        <h2 id="composerBasligi">E-posta Gönder</h2>
+        
+        <label for="composerTo">Kime</label>
+        <input id="composerTo" type="email" required placeholder="ornek@domain.com" />
+        
+        <label for="composerSubject">Konu</label>
+        <input id="composerSubject" type="text" required placeholder="E-posta konusu" />
+        
+        <label for="composerBody">Mesajınız</label>
+        <textarea id="composerBody" required placeholder="Mesajınızı buraya yazın..." style="width: 100%; min-height: 150px; margin-bottom: 1rem; border-radius: 8px; padding: 0.5rem; border: 1px solid var(--cizgi); background: var(--kart-arkasi); color: var(--metin-ana); font-family: inherit;"></textarea>
+        
+        <label for="composerAttachments">Ekler (Max 10MB)</label>
+        <input id="composerAttachments" type="file" multiple style="margin-bottom: 1rem;" />
+        
+        <input type="hidden" id="composerInReplyTo" />
+        <input type="hidden" id="composerReferences" />
+        
+        <div style="display: flex; gap: 1rem;">
+          <button class="ikincil-dugme tam-genislik" type="button" id="composerIptal">İptal</button>
+          <button class="birincil-dugme tam-genislik" type="submit" id="composerGonder">Gönder</button>
+        </div>
       </form>
     </dialog>
 
