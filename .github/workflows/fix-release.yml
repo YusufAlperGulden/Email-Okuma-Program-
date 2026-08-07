@@ -1,0 +1,20 @@
+name: Fix v0.5.0 Release
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-release.yml'
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download v0.5.1 and Upload as v0.5.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download v0.5.1 -R YusufAlperGulden/Email-Okuma-Program- -p "*.exe"
+          mv OdakPosta-Setup-0.5.1.exe OdakPosta-Setup-0.5.0.exe
+          gh release upload v0.5.0 OdakPosta-Setup-0.5.0.exe --clobber -R YusufAlperGulden/Email-Okuma-Program-
