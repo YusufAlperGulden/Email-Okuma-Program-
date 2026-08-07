@@ -532,9 +532,7 @@
   function copySummary(id) {
     const email = state.emails.find(item => item.id === id); if (!email) return;
     const text = email.bodyText || email.snippet || email.summary || "Metin bulunamadı.";
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => notify("E-posta metni kopyalandı.", "basari")).catch(() => notify("Kopyalanamadı.", "uyari"));
-    } else {
+    const fallbackCopy = () => {
       try {
         const textArea = document.createElement("textarea");
         textArea.value = text;
@@ -546,6 +544,11 @@
       } catch (err) {
         notify("Kopyalanamadı.", "uyari");
       }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => notify("E-posta metni kopyalandı.", "basari")).catch(() => fallbackCopy());
+    } else {
+      fallbackCopy();
     }
   }
 
