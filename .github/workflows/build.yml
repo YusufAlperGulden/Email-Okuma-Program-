@@ -25,7 +25,16 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Build & Publish Release
+      - name: Build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win nsis --x64 --publish always
+        run: npx electron-builder --win nsis --x64
+
+      - name: Publish Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.exe
+            dist/*.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

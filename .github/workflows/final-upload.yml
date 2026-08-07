@@ -1,0 +1,36 @@
+name: Final Upload v0.6.0 EXE
+
+on:
+  push:
+    paths:
+      - '.github/workflows/final-upload.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npx electron-builder --win nsis --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload with GH CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Get-ChildItem dist\*.exe | ForEach-Object {
+            gh release upload v0.6.0 $_.FullName --clobber 2>&1 | Out-File upload_log.txt
+          }
+      - name: Report Error
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $log = Get-Content upload_log.txt -Raw
+          gh issue create --title "Upload Failed" --body "\`\`\`$log\`\`\`"
