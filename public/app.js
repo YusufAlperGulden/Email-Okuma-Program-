@@ -26,6 +26,11 @@
 
   let selectedProfilePicture = undefined;
   function isDesktop() { return Boolean(desktopBridge && state.localMode); }
+  
+  if (desktopBridge) {
+    const downloadBtn = document.getElementById('windowsIndirDugmesi');
+    if (downloadBtn) downloadBtn.style.display = 'none';
+  }
 
   function normaliseEmail(email, index) {
     const labels = { urgent: "action", action_required: "action", important: "action", reminder: "action", forgotten: "action", information: "info", low: "info" };
