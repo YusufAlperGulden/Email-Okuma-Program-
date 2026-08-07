@@ -278,6 +278,14 @@ async function register(req, res) {
   // used to create an unlimited number of accounts in one rate window.
   recordAuthFailure(req, 'register');
   const body = await readJson(req);
+  const rawUsername = typeof body.username === 'string' ? body.username.trim() : '';
+  if (!rawUsername) throw new HttpError(400, 'Kullanıcı adı boş bırakılamaz.', 'invalid_username');
+  if (rawUsername.length < 3) throw new HttpError(400, 'Kullanıcı adı en az 3 karakter olmalıdır.', 'invalid_username');
+  if (rawUsername.length > 32) throw new HttpError(400, `Kullanıcı adı en fazla 32 karakter olabilir, yazdığınız metin ${rawUsername.length} karakter uzunluğunda.`, 'invalid_username');
+  if (!/^[\p{L}0-9]/u.test(rawUsername)) throw new HttpError(400, 'Kullanıcı adı bir harf veya sayı ile başlamalıdır.', 'invalid_username');
+  if (!/[\p{L}0-9]$/u.test(rawUsername)) throw new HttpError(400, 'Kullanıcı adı bir harf veya sayı ile bitmelidir. (Nokta veya boşluk ile bitemez).', 'invalid_username');
+  if (!/^[\p{L}0-9](?:[\p{L}0-9._ @-]{1,30}[\p{L}0-9])$/u.test(rawUsername)) throw new HttpError(400, 'Kullanıcı adı yalnızca harf, sayı, nokta, alt çizgi, boşluk, @ ve tire içerebilir.', 'invalid_username');
+  
   const username = normalizeUsername(body.username);
   const password = typeof body.password === 'string' ? body.password : '';
   if (!username) throw new HttpError(400, 'Geçerli bir kullanıcı adı girin.', 'invalid_username');
